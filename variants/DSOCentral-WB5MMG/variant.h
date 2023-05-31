@@ -98,15 +98,15 @@ extern "C"
 // Bus A 
 #define BUSA_PWM0               (0u)
 #define BUSA_PWM1               (1u)
-#define BUSA_AIN0               PIN_A0
-#define BUSA_AIN1               PIN_A1
+#define BUSA_AIN0               PIN_A0  // Current A.0
+#define BUSA_AIN1               PIN_A1  // Current A.1
 
 #define BUSB_PWM0               (4u)
 #define BUSB_PWM1               (5u)
-#define BUSB_AIN_I0             PIN_A2
-#define BUSB_AIN_I1             PIN_A3
-#define BUSB_AIN_T0             PIN_A4
-#define BUSB_AIN_T1             PIN_A5
+#define BUSB_AIN0               PIN_A2  // Current B.0
+#define BUSB_AIN1               PIN_A3  // Current B.1
+#define BUSB_AIN2               PIN_A4  // Temp B.0
+#define BUSB_AIN3               PIN_A5  // Temp B.1
 
 #define BUSC_PWM0               (6u)
 #define BUSC_PWM1               (7u)
