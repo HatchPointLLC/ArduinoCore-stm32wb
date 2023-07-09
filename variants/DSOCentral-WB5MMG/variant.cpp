@@ -120,6 +120,17 @@ extern const stm32wb_uart_params_t g_SPI1Params = {
 };
 
 extern const stm32wb_i2c_params_t g_WireParams = {
+    STM32WB_I2C_INSTANCE_I2C1,
+    STM32WB_I2C_IRQ_PRIORITY,
+    (STM32WB_DMA_CHANNEL_DMA1_CH6_INDEX | STM32WB_DMA_CHANNEL_SELECT_I2C1_RX),
+    STM32WB_DMA_CHANNEL_NONE,
+    {
+        STM32WB_GPIO_PIN_PB8_I2C1_SCL,
+        STM32WB_GPIO_PIN_PB7_I2C1_SDA,
+    },
+};
+
+extern const stm32wb_i2c_params_t g_Wire1Params = {
     STM32WB_I2C_INSTANCE_I2C3,
     STM32WB_I2C_IRQ_PRIORITY,
     (STM32WB_DMA_CHANNEL_DMA1_CH5_INDEX | STM32WB_DMA_CHANNEL_SELECT_I2C3_RX),
@@ -127,17 +138,6 @@ extern const stm32wb_i2c_params_t g_WireParams = {
     {
         STM32WB_GPIO_PIN_PC0_I2C3_SCL,
         STM32WB_GPIO_PIN_PC1_I2C3_SDA,
-    },
-};
-
-extern const stm32wb_i2c_params_t g_Wire1Params = {
-    STM32WB_I2C_INSTANCE_I2C1,
-    STM32WB_I2C_IRQ_PRIORITY,
-    (STM32WB_DMA_CHANNEL_DMA1_CH6_INDEX | STM32WB_DMA_CHANNEL_SELECT_I2C1_RX),
-    STM32WB_DMA_CHANNEL_NONE,
-    {
-        STM32WB_GPIO_PIN_PB8_I2C1_SCL,
-        STM32WB_GPIO_PIN_PA10_I2C1_SDA,
     },
 };
 
