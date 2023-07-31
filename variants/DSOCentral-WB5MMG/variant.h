@@ -73,8 +73,8 @@ extern "C"
  *----------------------------------------------------------------------------*/
 
 // Number of pins defined in PinDescription array
-#define PINS_COUNT           (20u)
-#define NUM_DIGITAL_PINS     (13u)
+#define PINS_COUNT           (22u)
+#define NUM_DIGITAL_PINS     (15u)
 #define NUM_ANALOG_INPUTS    (6u)
 #define NUM_ANALOG_OUTPUTS   (0u)
 
@@ -150,11 +150,15 @@ static const uint8_t SCK  = PIN_SPI_SCK;
  */
 #define WIRE_INTERFACES_COUNT 1
 
+// Bus D
 #define PIN_WIRE_SDA         (8u)
 #define PIN_WIRE_SCL         (9u)
 
 static const uint8_t SDA = PIN_WIRE_SDA;
 static const uint8_t SCL = PIN_WIRE_SCL;
+
+#define BUSD_GPIO0          (21u)
+#define BUSD_GPIO1          (20u)
 
 /*
  * PDM Interfaces
