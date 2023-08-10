@@ -284,7 +284,7 @@ DSOCentral-WB5MMG.build.vid=0x1209
 DSOCentral-WB5MMG.build.pid=0x6680
 DSOCentral-WB5MMG.build.did=0x0100
 DSOCentral-WB5MMG.build.usb_manufacturer="ProctorGamble"
-DSOCentral-WB5MMG.build.usb_product="DSOCentral"
+DSOCentral-WB5MMG.build.usb_product="DSOCentral-WB5MMG"
 DSOCentral-WB5MMG.build.extra_flags=-DSTM32WB55xx -fsingle-precision-constant "-D__SYSTEM_CORE_CLOCK__={build.f_cpu}" {build.usb_flags}
 DSOCentral-WB5MMG.build.ldscript=STM32WB55xx_FLASH.ld 
 DSOCentral-WB5MMG.build.openocdscript=openocd_scripts/DSOCentral-wb5mmg.cfg
@@ -293,6 +293,7 @@ DSOCentral-WB5MMG.build.variant_system_libs="-L{runtime.platform.path}/system/ST
 DSOCentral-WB5MMG.build.variant_system_include="-I{runtime.platform.path}/system/CMSIS/Core/Include" "-I{runtime.platform.path}/system/CMSIS/DSP/Include" "-I{runtime.platform.path}/system/CMSIS/Device/ST/STM32WBxx/Include" "-I{runtime.platform.path}/system/STM32WBxx/Include" 
 
 DSOCentral-WB5MMG.upload.tool=dfu-util
+DSOCentral-WB5MMG.upload.tool.default=dfu-util
 DSOCentral-WB5MMG.upload.protocol=dfu
 DSOCentral-WB5MMG.upload.address=0x08000000
 DSOCentral-WB5MMG.upload.interface=0
