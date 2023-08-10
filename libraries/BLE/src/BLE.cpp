@@ -31,13 +31,14 @@
 #include "wiring_private.h"
 
 #include "stm32wb_ipcc.h"
+#include "stm32wb_boot.h"
+#include "stm32wb_fwu.h"
 
 extern "C" {
 #include "BLE/ble_core.h"
 }
 
 #define BLE_TRACE_SUPPORTED                              0
-
 #define BLE_STATUS_REQUEST_BUSY                          0xff
 
 #define BLE_ADDRESS_LENGTH                               6
@@ -94,7 +95,8 @@ extern "C" {
 
 #define BLE_NUM_LINK                                     1
 #define BLE_DATA_LENGTH_EXTENSION                        1
-#define BLE_MAX_ATT_MTU                                  156
+//#define BLE_MAX_ATT_MTU                                  156
+#define BLE_MAX_ATT_MTU                                  251
 #define BLE_VITERBI_MODE                                 1
 #define BLE_MAX_CONN_EVENT_LENGTH                        0xffffffff
 
@@ -1787,7 +1789,7 @@ int hci_send_req(stm32wb_ipcc_ble_command_t *command, bool async) {
         return BLE_STATUS_ERROR;
     }
 
-    return (command->status == STM32WB_IPCC_BLE_STATUS_SUCCESS) ? BLE_STATUS_SUCCESS : BLE_STATUS_TIMEOUT;
+    return (command->status == STM32WB_IPCC_BLE_COMMAND_STATUS_SUCCESS) ? BLE_STATUS_SUCCESS : BLE_STATUS_TIMEOUT;
 }
 
 BLELocalDevice::BLELocalDevice() {
@@ -1798,8 +1800,12 @@ BLELocalDevice::BLELocalDevice() {
     m_device_name = NULL;
     m_device_name_length = BLE_MIN_DEVICE_NAME_LENGTH;
     m_appearance = 0;
+#if 0    
     m_ppcp.connection_interval_min = 0x0010; /* 20ms */
     m_ppcp.connection_interval_max = 0x0020; /* 40ms */
+#endif
+    m_ppcp.connection_interval_min = 0x0006; /* 20ms */
+    m_ppcp.connection_interval_max = 0x0010; /* 40ms */
     m_ppcp.slave_latency = 0x0000;
     m_ppcp.supervision_timeout = 0x00c8; /* 2000ms */
     m_pa_level = 0x19;
@@ -1841,7 +1847,7 @@ BLELocalDevice::BLELocalDevice() {
     m_process.command.cparam = &m_process.data[0];
     m_process.command.rparam = &m_process.data[0];
     m_process.command.rsize = 255;
-    m_process.command.status = STM32WB_IPCC_BLE_STATUS_SUCCESS;
+    m_process.command.status = STM32WB_IPCC_BLE_COMMAND_STATUS_SUCCESS;
     m_process.command.callback = done_callback.callback();
     m_process.command.context = done_callback.context();
     
@@ -3262,7 +3268,7 @@ bool BLELocalDevice::insert(BLEServerService *service) {
 
     if (status == BLE_STATUS_SUCCESS) {
 #if (BLE_TRACE_SUPPORTED == 1)
-        printf("ADD-SERVICE \"%s\", %04x\r\n", service->m_uuid, service->m_server.handle);
+        armv7m_rtt_printf("ADD-SERVICE \"%s\", %04x\r\n", service->m_uuid, service->m_server.handle);
 #endif
       
         service->reference();
@@ -3351,7 +3357,7 @@ bool BLELocalDevice::insert(BLEServerService *service) {
             
             if (status == BLE_STATUS_SUCCESS) {
 #if (BLE_TRACE_SUPPORTED == 1)
-                printf("ADD-CHARACTERISTIC \"%s\", %04x\r\n", characteristic->m_uuid, characteristic->m_server.handle);
+                armv7m_rtt_printf("ADD-CHARACTERISTIC \"%s\", %04x\r\n", characteristic->m_uuid, characteristic->m_server.handle);
 #endif
                 characteristic->reference();
 
@@ -3566,7 +3572,7 @@ BLEPeerDevice *BLELocalDevice::complete(uint16_t handle, const uint8_t *address,
         m_peripheral.advertising = false;
         
 #if (BLE_TRACE_SUPPORTED == 1)
-        printf("PROCESS-CONNECT\r\n");
+        armv7m_rtt_printf("PROCESS-CONNECT\r\n");
 #endif
         
         m_connect_callback();
@@ -3577,7 +3583,7 @@ BLEPeerDevice *BLELocalDevice::complete(uint16_t handle, const uint8_t *address,
             m_peripheral.advertising = false;
             
 #if (BLE_TRACE_SUPPORTED == 1)
-            printf("PROCESS-STOP\r\n");
+            armv7m_rtt_printf("PROCESS-STOP\r\n");
 #endif
             
             m_stop_callback();
@@ -3604,7 +3610,7 @@ void BLELocalDevice::terminate() {
                             characteristic->m_subscribed = 0;
 
 #if (BLE_TRACE_SUPPORTED == 1)
-                            printf("PROCESS-SUBSCRIBED %02x (\"%s\")\r\n", 0, characteristic->m_uuid);
+                            armv7m_rtt_printf("PROCESS-SUBSCRIBED %02x (\"%s\")\r\n", 0, characteristic->m_uuid);
 #endif
                             
                             characteristic->m_subscribed_callback();
@@ -3626,7 +3632,7 @@ void BLELocalDevice::terminate() {
             m_process.request_current = nullptr;
             
 #if (BLE_TRACE_SUPPORTED == 1)
-            printf("PROCESS-DONE %02x (\"%s\", %02x)\r\n", HCI_REMOTE_USER_TERMINATED_CONNECTION_ERR_CODE, characteristic->m_uuid, characteristic->m_update_type);
+            armv7m_rtt_printf("PROCESS-DONE %02x (\"%s\", %02x)\r\n", HCI_REMOTE_USER_TERMINATED_CONNECTION_ERR_CODE, characteristic->m_uuid, characteristic->m_update_type);
 #endif
 
             callback = characteristic->m_done_callback;
@@ -3639,7 +3645,7 @@ void BLELocalDevice::terminate() {
         m_central->m_handle = BLE_PEER_DEVICE_NOT_CONNECTED;
         
 #if (BLE_TRACE_SUPPORTED == 1)
-        printf("PROCESS-DISCONNECT\r\n");
+        armv7m_rtt_printf("PROCESS-DISCONNECT\r\n");
 #endif
         
         m_disconnect_callback();
@@ -3682,13 +3688,15 @@ void BLELocalDevice::process() {
         return;
     }
 
+    stm32wb_gpio_pin_write(STM32WB_GPIO_PIN_PB12, 1);
+    
 #if (BLE_TRACE_SUPPORTED == 1)
-    printf("PROCESS-ENTER %08x\r\n", (unsigned int)m_process.sequence);
+    armv7m_rtt_printf("PROCESS-ENTER %08x\r\n", (unsigned int)m_process.sequence);
 #endif
     
-    if ((m_process.sequence & BLE_BUSY_MASK) && (m_process.command.status != STM32WB_IPCC_BLE_STATUS_BUSY)) {
+    if ((m_process.sequence & BLE_BUSY_MASK) && (m_process.command.status != STM32WB_IPCC_BLE_COMMAND_STATUS_BUSY)) {
 #if (BLE_TRACE_SUPPORTED == 1)
-        printf("PROCESS-STATUS %02x\r\n", *((uint8_t*)m_process.command.rparam));
+        armv7m_rtt_printf("PROCESS-STATUS %02x\r\n", *((uint8_t*)m_process.command.rparam));
 #endif
         if (m_process.sequence & BLE_BUSY_GATT_ALLOW_READ) {
         }
@@ -3741,7 +3749,7 @@ void BLELocalDevice::process() {
                                     m_process.request_current = nullptr;
                                     
 #if (BLE_TRACE_SUPPORTED == 1)
-                                    printf("PROCESS-DONE %02x (\"%s\", %02x)\r\n", HCI_REMOTE_USER_TERMINATED_CONNECTION_ERR_CODE, characteristic->m_uuid, characteristic->m_update_type);
+                                    armv7m_rtt_printf("PROCESS-DONE %02x (\"%s\", %02x)\r\n", HCI_REMOTE_USER_TERMINATED_CONNECTION_ERR_CODE, characteristic->m_uuid, characteristic->m_update_type);
 #endif
 
                                     callback = characteristic->m_done_callback;
@@ -3754,7 +3762,7 @@ void BLELocalDevice::process() {
                                 m_process.request_current = nullptr;
                                 
 #if (BLE_TRACE_SUPPORTED == 1)
-                                printf("PROCESS-DONE %02x (\"%s\", %02x)\r\n", rparam->Status, characteristic->m_uuid, characteristic->m_update_type);
+                                armv7m_rtt_printf("PROCESS-DONE %02x (\"%s\", %02x)\r\n", rparam->Status, characteristic->m_uuid, characteristic->m_update_type);
 #endif
 
                                 callback = characteristic->m_done_callback;
@@ -3768,7 +3776,7 @@ void BLELocalDevice::process() {
                         m_process.request_current = nullptr;
                         
 #if (BLE_TRACE_SUPPORTED == 1)
-                        printf("PROCESS-DONE %02x (\"%s\", %02x)\r\n", rparam->Status, characteristic->m_uuid, characteristic->m_update_type);
+                        armv7m_rtt_printf("PROCESS-DONE %02x (\"%s\", %02x)\r\n", rparam->Status, characteristic->m_uuid, characteristic->m_update_type);
 #endif
                         
                         callback = characteristic->m_done_callback;
@@ -3780,7 +3788,7 @@ void BLELocalDevice::process() {
 
                     if (characteristic->m_written) {
 #if (BLE_TRACE_SUPPORTED == 1)
-                        printf("PROCESS-WRITTEN (\"%s\")\r\n", characteristic->m_uuid);
+                        armv7m_rtt_printf("PROCESS-WRITTEN (\"%s\")\r\n", characteristic->m_uuid);
 #endif
                         characteristic->m_written_callback();
                     }
@@ -3801,14 +3809,14 @@ void BLELocalDevice::process() {
                         m_process.value_current = nullptr;
 
 #if (BLE_TRACE_SUPPORTED == 1)
-                        printf("PROCESS-UPDATE %02x (\"%s\")\r\n", rparam->Status, characteristic->m_uuid);
+                        armv7m_rtt_printf("PROCESS-UPDATE %02x (\"%s\")\r\n", rparam->Status, characteristic->m_uuid);
 #endif
                     }
                 } else {
                     m_process.value_current = nullptr;
 
 #if (BLE_TRACE_SUPPORTED == 1)
-                    printf("PROCESS-UPDATE %02x (\"%s\")\r\n", rparam->Status, characteristic->m_uuid);
+                    armv7m_rtt_printf("PROCESS-UPDATE %02x (\"%s\")\r\n", rparam->Status, characteristic->m_uuid);
 #endif
 
                 }
@@ -3826,14 +3834,14 @@ void BLELocalDevice::process() {
                         characteristic->m_subscribed = (rparam->Value[0] & 3);
                     
 #if (BLE_TRACE_SUPPORTED == 1)
-                        printf("PROCESS-SUBSCRIBED %02x (\"%s\")\r\n", characteristic->m_subscribed, characteristic->m_uuid);
+                        armv7m_rtt_printf("PROCESS-SUBSCRIBED %02x (\"%s\")\r\n", characteristic->m_subscribed, characteristic->m_uuid);
 #endif
                         
                         characteristic->m_subscribed_callback();
                     }
                 } else {
 #if (BLE_TRACE_SUPPORTED == 1)
-                    printf("PROCESS-SUBSCRIBED %02x (\"%s\")\r\n", characteristic->m_subscribed, characteristic->m_uuid);
+                    armv7m_rtt_printf("PROCESS-SUBSCRIBED %02x (\"%s\")\r\n", characteristic->m_subscribed, characteristic->m_uuid);
 #endif
                 }
             }
@@ -3888,7 +3896,7 @@ void BLELocalDevice::process() {
                                 m_peripheral.advertising = false;
 
 #if (BLE_TRACE_SUPPORTED == 1)
-                                printf("PROCESS-STOP\r\n");
+                                armv7m_rtt_printf("PROCESS-STOP\r\n");
 #endif
                                 
                                 m_stop_callback();
@@ -3912,7 +3920,7 @@ void BLELocalDevice::process() {
                                 m_peripheral.advertising = false;
                                 
 #if (BLE_TRACE_SUPPORTED == 1)
-                                printf("PROCESS-STOP\r\n");
+                                armv7m_rtt_printf("PROCESS-STOP\r\n");
 #endif
                                 
                                 m_stop_callback();
@@ -3930,7 +3938,7 @@ void BLELocalDevice::process() {
                             m_central->m_supervision_timeout = eparam->Supervision_Timeout;
 
 #if (BLE_TRACE_SUPPORTED == 1)
-                            printf("PROCESS-CONNECTION-UPDATE\r\n");
+                            armv7m_rtt_printf("PROCESS-CONNECTION-UPDATE\r\n");
 #endif
                             
                             m_central->m_connection_update_callback();
@@ -3953,7 +3961,7 @@ void BLELocalDevice::process() {
                     
                     default:
 #if (BLE_TRACE_SUPPORTED == 1)
-                        printf("PROCESS-UNEXPTECT HCI LE EVENT !!!\n");
+                        armv7m_rtt_printf("PROCESS-UNEXPTECT HCI LE EVENT !!!\n");
 #endif
                       //__BKPT();
                         break;
@@ -3977,7 +3985,7 @@ void BLELocalDevice::process() {
                         armv7m_atomic_and(&m_process.sequence, ~BLE_EVENT_GAP_PAIRING_COMPLETE);
 
 #if (BLE_TRACE_SUPPORTED == 1)
-                        printf("PROCESS-PAIRING %02x\r\n", eparam->Status);
+                        armv7m_rtt_printf("PROCESS-PAIRING %02x\r\n", eparam->Status);
 #endif
                         
                         if (eparam->Status == BLE_STATUS_SUCCESS) {
@@ -4003,7 +4011,7 @@ void BLELocalDevice::process() {
                             m_peripheral.advertising = false;
 
 #if (BLE_TRACE_SUPPORTED == 1)
-                            printf("PROCESS-STOP\r\n");
+                            armv7m_rtt_printf("PROCESS-STOP\r\n");
 #endif
                             
                             m_stop_callback();
@@ -4025,7 +4033,7 @@ void BLELocalDevice::process() {
                     case ACI_GAP_NUMERIC_COMPARISON_VALUE_EVENT:
                     case ACI_GAP_KEYPRESS_NOTIFICATION_EVENT:
 #if (BLE_TRACE_SUPPORTED == 1)
-                        printf("PROCESS-UNEXPTECT ACI GAP EVENT !!!\n");
+                        armv7m_rtt_printf("PROCESS-UNEXPTECT ACI GAP EVENT !!!\n");
 #endif
                       // __BKPT();
                         break;
@@ -4039,7 +4047,7 @@ void BLELocalDevice::process() {
                       /* ATT */
                     case ACI_ATT_EXCHANGE_MTU_RESP_EVENT: {
                         const aci_att_exchange_mtu_resp_event_rp0 *eparam = (const aci_att_exchange_mtu_resp_event_rp0*)&hci_vs_event->data[0];
-                        
+
                         if (m_central && (m_central->m_handle == eparam->Connection_Handle)) {
                             m_central->m_mtu = eparam->Server_RX_MTU;
                         }
@@ -4050,7 +4058,7 @@ void BLELocalDevice::process() {
                         const aci_gatt_attribute_modified_event_rp0 *eparam = (const aci_gatt_attribute_modified_event_rp0 *)&hci_vs_event->data[0];
 
 #if (BLE_TRACE_SUPPORTED == 1)
-                        printf("PROCESS-MODIFIED-EVENT %04x\r\n", eparam->Attr_Handle);
+                        armv7m_rtt_printf("PROCESS-MODIFIED-EVENT %04x\r\n", eparam->Attr_Handle);
 #endif
                         
                         for (index = 0; index < BLE_NUM_GATT_SERVICES; index++) {
@@ -4069,7 +4077,7 @@ void BLELocalDevice::process() {
                                                 
                                                 if (characteristic->m_status != BLE_STATUS_BUSY) {
 #if (BLE_TRACE_SUPPORTED == 1)
-                                                    printf("PROCESS-WRITTEN (\"%s\")\r\n", characteristic->m_uuid);
+                                                    armv7m_rtt_printf("PROCESS-WRITTEN (\"%s\")\r\n", characteristic->m_uuid);
 #endif
                                                     characteristic->m_written_callback();
                                                 }
@@ -4085,7 +4093,7 @@ void BLELocalDevice::process() {
                                                 characteristic->m_subscribed = (eparam->Attr_Data[0] & 3);
                                                 
 #if (BLE_TRACE_SUPPORTED == 1)
-                                                printf("PROCESS-SUBSCRIBED %02x (\"%s\")\r\n", characteristic->m_subscribed, characteristic->m_uuid);
+                                                armv7m_rtt_printf("PROCESS-SUBSCRIBED %02x (\"%s\")\r\n", characteristic->m_subscribed, characteristic->m_uuid);
 #endif
                                                 
                                                 characteristic->m_subscribed_callback();
@@ -4108,7 +4116,7 @@ void BLELocalDevice::process() {
                         const aci_gatt_read_permit_req_event_rp0 *eparam = (const aci_gatt_read_permit_req_event_rp0 *)&hci_vs_event->data[0];
 
 #if (BLE_TRACE_SUPPORTED == 1)
-                        printf("PROCESS-READ-PERMIT-EVENT %04x\r\n", eparam->Attribute_Handle);
+                        armv7m_rtt_printf("PROCESS-READ-PERMIT-EVENT %04x\r\n", eparam->Attribute_Handle);
 #endif
                         
                         for (index = 0; index < BLE_NUM_GATT_SERVICES; index++) {
@@ -4118,7 +4126,7 @@ void BLELocalDevice::process() {
                                 for (characteristic = service->m_server.children; characteristic; characteristic = characteristic->m_server.sibling) {
                                     if (eparam->Attribute_Handle == (characteristic->m_server.handle + BLE_VALUE_ATTRIB_HANDLE_OFFSET)) {
 #if (BLE_TRACE_SUPPORTED == 1)
-                                        printf("PROCESS-READ (\"%s\")\r\n", characteristic->m_uuid);
+                                        armv7m_rtt_printf("PROCESS-READ (\"%s\")\r\n", characteristic->m_uuid);
 #endif
                                         characteristic->m_read_callback();
                                         
@@ -4142,7 +4150,7 @@ void BLELocalDevice::process() {
 
                         for (entry = 0; entry < eparam->Number_of_Handles; entry++) {
 #if (BLE_TRACE_SUPPORTED == 1)
-                            printf("PROCESS-READ-MULTI-PERMIT-EVENT %04x\r\n", eparam->Handle_Item[entry].Handle);
+                            armv7m_rtt_printf("PROCESS-READ-MULTI-PERMIT-EVENT %04x\r\n", eparam->Handle_Item[entry].Handle);
 #endif
                         
                             for (index = 0; index < BLE_NUM_GATT_SERVICES; index++) {
@@ -4152,7 +4160,7 @@ void BLELocalDevice::process() {
                                     for (characteristic = service->m_server.children; characteristic; characteristic = characteristic->m_server.sibling) {
                                         if (eparam->Handle_Item[entry].Handle == (characteristic->m_server.handle + BLE_VALUE_ATTRIB_HANDLE_OFFSET)) {
 #if (BLE_TRACE_SUPPORTED == 1)
-                                            printf("PROCESS-READ (\"%s\")\r\n", characteristic->m_uuid);
+                                            armv7m_rtt_printf("PROCESS-READ (\"%s\")\r\n", characteristic->m_uuid);
 #endif
                                             characteristic->m_read_callback();
                                             
@@ -4185,7 +4193,7 @@ void BLELocalDevice::process() {
                             m_process.request_current = nullptr;
 
 #if (BLE_TRACE_SUPPORTED == 1)
-                            printf("PROCESS-DONE %02x (\"%s\", %02x)\r\n", BLE_STATUS_SUCCESS, characteristic->m_uuid, characteristic->m_update_type);
+                            armv7m_rtt_printf("PROCESS-DONE %02x (\"%s\", %02x)\r\n", BLE_STATUS_SUCCESS, characteristic->m_uuid, characteristic->m_update_type);
 #endif
 
                             callback = characteristic->m_done_callback;
@@ -4212,7 +4220,7 @@ void BLELocalDevice::process() {
                     case ACI_GATT_PREPARE_WRITE_PERMIT_REQ_EVENT:
                     default:
 #if (BLE_TRACE_SUPPORTED == 1)
-                        printf("PROCESS-UNEXPECTED ACI ATT/GATT EVENT !!!\n");
+                      armv7m_rtt_printf("PROCESS-UNEXPECTED ACI ATT/GATT EVENT !!! [%04x]\n", hci_vs_event->ecode);
 #endif
                       // __BKPT();
                         break;
@@ -4223,7 +4231,7 @@ void BLELocalDevice::process() {
                 case HCI_COMMAND_STATUS_EVENT:
                 default:
 #if (BLE_TRACE_SUPPORTED == 1)
-                        printf("PROCESS-UNEXPTECT HCI EVENT !!!\n");
+                        armv7m_rtt_printf("PROCESS-UNEXPTECT HCI EVENT !!!\n");
 #endif
                     __BKPT();
                     break;
@@ -4518,8 +4526,10 @@ void BLELocalDevice::process() {
     }
 
 #if (BLE_TRACE_SUPPORTED == 1)
-    printf("PROCESS-EXIT %08x\r\n", (unsigned int)m_process.sequence);
+    armv7m_rtt_printf("PROCESS-EXIT %08x\r\n", (unsigned int)m_process.sequence);
 #endif
+
+    stm32wb_gpio_pin_write(STM32WB_GPIO_PIN_PB12, 0);
 }
 
 void BLELocalDevice::done() {
@@ -5614,4 +5624,547 @@ void BLEUart::onReceive(void(*callback)(void)) {
 
 void BLEUart::onReceive(Callback callback) {
     m_receive_callback = callback;
+}
+
+
+#define BLE_OTA_CONTROL_SIZE                       5
+
+#define BLE_OTA_COMMAND_STOP                       0x00
+#define BLE_OTA_COMMAND_START_WIRELESS             0x01
+#define BLE_OTA_COMMAND_START_APPLICATION          0x02
+#define BLE_OTA_COMMAND_FINISH                     0x07
+#define BLE_OTA_COMMAND_CANCEL                     0x08
+
+#define BLE_OTA_COMMAND_SIZE_STOP                  1
+#define BLE_OTA_COMMAND_SIZE_START                 4
+#define BLE_OTA_COMMAND_SIZE_START_READY           5
+#define BLE_OTA_COMMAND_SIZE_FINISH                1
+#define BLE_OTA_COMMAND_SIZE_CANCEL                1
+
+
+#define BLE_OTA_EVENT_SIZE                         1
+
+#define BLE_OTA_EVENT_CLEAN                        0x00
+#define BLE_OTA_EVENT_REBOOT_CONFIRMED             0x01
+#define BLE_OTA_EVENT_READY_TO_RECEIVE_FILE        0x02
+#define BLE_OTA_EVENT_NOT_READY_TO_RECEIVE_FILE    0x03
+
+
+#define BLE_OTA_DATA_SIZE                          244
+
+
+#define BLE_OTA_STATUS_SIZE                        5
+
+#define BLE_OTA_STATUS_OK                          0x00
+#define BLE_OTA_STATUS_ERR_TARGET                  0x01 // File is not targeted for use by this device.
+#define BLE_OTA_STATUS_ERR_FILE                    0x02 // File is for this device but fails some vendor-specific verification test.
+#define BLE_OTA_STATUS_ERR_WRITE                   0x03 // Device is unable to write memory.
+#define BLE_OTA_STATUS_ERR_ERASE                   0x04 // Memory erase function failed.
+#define BLE_OTA_STATUS_ERR_ERASE_VERIFY            0x05 // Memory erase check failed.
+#define BLE_OTA_STATUS_ERR_PROGRAM                 0x06 // Program memory function failed
+#define BLE_OTA_STATUS_ERR_PROGRAM_VERIFY          0x07 // Programmed memory failed verification.
+#define BLE_OTA_STATUS_ERR_ADDRESS                 0x08 // Cannot program memory due to received address that is out of range.
+#define BLE_OTA_STATUS_ERR_NOTDONE                 0x09 // Received COMMAND_FINISH, but device does not think it has all of the data yet
+#define BLE_OTA_STATUS_ERR_FIRMWARE                0x0a // Device’s firmware is corrupt. It cannot return to run-time (non-DFU/OTA) operations.
+#define BLE_OTA_STATUS_ERR_OVERFLOW                0x0b 
+
+
+#define BLE_OTA_SIZE_SIZE                          2
+
+typedef struct __attribute__((packed)) _ble_ota_control_t {
+    uint8_t command;
+    uint8_t address[3];
+} ble_ota_control_t;
+
+typedef struct __attribute__((packed)) _ble_ota_event_t {
+    uint8_t event;
+} ble_ota_event_t;
+
+typedef struct __attribute__((packed)) _ble_ota_status_t {
+    uint8_t status;
+    uint8_t count[3];
+    uint8_t state;
+} ble_ota_status_t;
+
+typedef struct __attribute__((packed)) _ble_ota_size_t {
+    uint8_t size[2];
+} ble_ota_size_t;
+
+static const ble_ota_size_t ble_ota_size = { .size = { BLE_OTA_BLOCK_SIZE & 0xff, BLE_OTA_BLOCK_SIZE >> 8, }, };
+
+#define BLE_OTA_STATE_STOP             0
+#define BLE_OTA_STATE_START            1
+#define BLE_OTA_STATE_DATA             2
+#define BLE_OTA_STATE_FINISH           3
+#define BLE_OTA_STATE_CANCEL           4
+#define BLE_OTA_STATE_REBOOT           5
+#define BLE_OTA_STATE_FINISH_INSTALL   6 // FINISH
+#define BLE_OTA_STATE_FINISH_CHECK     7 // FINISH
+#define BLE_OTA_STATE_FINISH_CLEAN     8 // FINISH
+#define BLE_OTA_STATE_CANCEL_CLEAN     9 // CANCEL
+
+static const uint8_t ble_ota_xlate_state[] = {
+    BLE_OTA_STATE_STOP,   /* BLE_OTA_STATE_STOP */
+    BLE_OTA_STATE_START,  /* BLE_OTA_STATE_START */
+    BLE_OTA_STATE_DATA,   /* BLE_OTA_STATE_DATA */
+    BLE_OTA_STATE_FINISH, /* BLE_OTA_STATE_FINISH */
+    BLE_OTA_STATE_CANCEL, /* BLE_OTA_STATE_CANCEL */
+    BLE_OTA_STATE_REBOOT, /* BLE_OTA_STATE_REBOOT */
+    BLE_OTA_STATE_FINISH, /* BLE_OTA_STATE_FINISH */
+    BLE_OTA_STATE_FINISH, /* BLE_OTA_STATE_FINISH_INSTALL */
+    BLE_OTA_STATE_FINISH, /* BLE_OTA_STATE_FINISH_CHECK */
+    BLE_OTA_STATE_FINISH, /* BLE_OTA_STATE_FINISH_CLEAN */
+    BLE_OTA_STATE_CANCEL, /* BLE_OTA_STATE_CANCEL_CLEAN */
+};
+  
+#define BLE_OTA_MODE_APPLICATION       0
+#define BLE_OTA_MODE_WIRELESS          1
+#define BLE_OTA_MODE_NONE              255
+
+BLEOta::BLEOta() :
+    BLEService("0000fe20-cc7a-482a-984a-7f2ed5b3e58f")
+{
+    m_state = BLE_OTA_STATE_START;
+    m_status = BLE_OTA_STATUS_OK;
+
+    m_busy = false;
+
+    m_head = 0;
+    m_tail = 0;
+    m_offset = 0;
+    m_count = 0;
+
+    m_work = K_WORK_INIT(BLEOta::queueCallback, (void*)this);
+
+    m_command_characteristic = BLECharacteristic("0000fe22-8e22-4541-9d4c-21edae82ed19", (BLE_PROPERTY_WRITE), 0, BLE_OTA_CONTROL_SIZE, false);
+    m_event_characteristic = BLECharacteristic("0000fe23-8e22-4541-9d4c-21edae82ed19", (BLE_PROPERTY_INDICATE), 0, BLE_OTA_EVENT_SIZE, true);
+    m_data_characteristic = BLECharacteristic("0000fe24-8e22-4541-9d4c-21edae82ed19", (BLE_PROPERTY_WRITE_WITHOUT_RESPONSE), 0, BLE_OTA_DATA_SIZE, false);
+    m_status_characteristic = BLECharacteristic("0000fe25-8e22-4541-9d4c-21edae82ed19", (BLE_PROPERTY_READ | BLE_PROPERTY_NOTIFY), 0, BLE_OTA_STATUS_SIZE, true);
+    m_size_characteristic = BLECharacteristic("0000fe26-8e22-4541-9d4c-21edae82ed19", (BLE_PROPERTY_READ), 0, &ble_ota_size, sizeof(ble_ota_size), BLE_OTA_SIZE_SIZE, true);
+
+    m_command_characteristic.onWritten(Callback(&BLEOta::commandCallback, this));
+    m_data_characteristic.onWritten(Callback(&BLEOta::dataCallback, this));
+    m_status_characteristic.onRead(Callback(&BLEOta::statusCallback, this));
+    
+    addCharacteristic(m_command_characteristic);
+    addCharacteristic(m_event_characteristic);
+    addCharacteristic(m_data_characteristic);
+    addCharacteristic(m_status_characteristic);
+    addCharacteristic(m_size_characteristic);
+}
+
+void BLEOta::doneCallback(class BLEOta *self) {
+    self->m_busy = false;
+
+    k_work_submit(&self->m_work);
+}
+
+void BLEOta::readyCallback(class BLEOta *self) {
+    ble_ota_event_t event;
+
+    self->m_busy = false;
+
+    event.event = BLE_OTA_EVENT_READY_TO_RECEIVE_FILE;
+            
+    self->m_event_characteristic.writeValue(&event, BLE_OTA_EVENT_SIZE);
+    
+    k_work_submit(&self->m_work);
+}
+
+void BLEOta::writeCallback(class BLEOta *self) {
+    ble_ota_status_t status;
+    
+    self->m_busy = false;
+    
+    if (!(self->m_offset & (BLE_OTA_BLOCK_SIZE -1)) && ((self->m_state == BLE_OTA_STATE_DATA) || (self->m_state == BLE_OTA_STATE_FINISH))) {
+        if (self->m_status_characteristic.subscribed()) {
+            status.status = BLE_OTA_STATUS_OK;
+            status.count[0] = self->m_count >> 0;
+            status.count[1] = self->m_count >> 8;
+            status.count[2] = self->m_count >> 16;
+            status.state = ble_ota_xlate_state[self->m_state];
+                
+            self->m_status_characteristic.writeValue(&status, sizeof(status));
+        }
+    }
+
+    k_work_submit(&self->m_work);
+}
+
+void BLEOta::queueCallback(class BLEOta *self) {
+    stm32wb_fwu_info_t info;
+    uint32_t head, tail, count, size;
+    ble_ota_event_t event;
+    
+    if (self->m_busy) {
+        return;
+    }
+
+    if (self->m_state == BLE_OTA_STATE_STOP) {
+    }
+    
+    if (self->m_state == BLE_OTA_STATE_START) {
+    }
+
+    if ((self->m_state == BLE_OTA_STATE_DATA) || (self->m_state == BLE_OTA_STATE_FINISH))
+    {
+        head = self->m_head;
+        tail = self->m_tail;
+        
+        if (head != tail) {
+            if (tail >= head) {
+                count = tail - head;
+            } else {
+                count = (BLE_OTA_QUEUE_SIZE - head) + tail;
+            }
+            
+            if ((count >= BLE_OTA_SLICE_SIZE) || (self->m_state == BLE_OTA_STATE_FINISH)) {
+                if (count > BLE_OTA_SLICE_SIZE) {
+                    count = BLE_OTA_SLICE_SIZE;
+                }
+
+                size = BLE_OTA_QUEUE_SIZE - head;
+                    
+                if (size > count) {
+                    size = count;
+                }
+                
+                if (size) {
+                    memcpy(&self->m_slice[0], &self->m_data[head], size);
+                }
+                
+                if (size != count) {
+                    memcpy(&self->m_slice[size], &self->m_data[0], (count - size));
+                }
+                
+                if (count & 7) {
+                    memset(&self->m_slice[count], 0, (8 - (count & 7)));
+                }
+                
+                head += count;
+                
+                if (head >= BLE_OTA_QUEUE_SIZE) {
+                    head -= BLE_OTA_QUEUE_SIZE;
+                }
+                
+#if (BLE_TRACE_SUPPORTED == 1)
+                armv7m_rtt_printf("DEQUEUE(%d, %d) -> %d / %d [%08x/%d]\n", self->m_head, count, head, level, self->m_offset, ((count + 7) & ~7));
+#endif                
+                self->m_busy = true;
+
+                self->m_request.control = STM32WB_FWU_CONTROL_WRITE;
+                self->m_request.mode = STM32WB_FWU_MODE_NONE;
+                self->m_request.offset = self->m_offset;
+                self->m_request.data = &self->m_slice[0];
+                self->m_request.size = ((count + 7) & ~7);
+                self->m_request.callback = (stm32wb_fwu_done_callback_t)BLEOta::writeCallback;
+                self->m_request.context = self;
+                
+                self->m_head = head;
+                self->m_offset += count;
+                
+                stm32wb_fwu_request(&self->m_request);
+
+                return;
+            }
+        } else {
+            if (self->m_state == BLE_OTA_STATE_FINISH) {
+                self->m_state = BLE_OTA_STATE_FINISH_INSTALL;
+            }
+        }
+    }
+
+    if (self->m_state == BLE_OTA_STATE_CANCEL) {
+        self->m_state = BLE_OTA_STATE_CANCEL_CLEAN;
+
+        self->m_busy = true;
+
+        self->m_request.control = STM32WB_FWU_CONTROL_CLEAN;
+        self->m_request.mode = STM32WB_FWU_MODE_NONE;
+        self->m_request.offset = 0;
+        self->m_request.data = NULL;
+        self->m_request.size = 0;
+        self->m_request.callback = (stm32wb_fwu_done_callback_t)BLEOta::doneCallback;
+        self->m_request.context = self;
+        
+        stm32wb_fwu_request(&self->m_request);
+
+        return;
+    }
+
+    if (self->m_state == BLE_OTA_STATE_REBOOT) {
+    }
+    
+    if (self->m_state == BLE_OTA_STATE_FINISH_INSTALL) {
+        self->m_state = BLE_OTA_STATE_FINISH_CHECK;
+
+        self->m_busy = true;
+
+        self->m_request.control = STM32WB_FWU_CONTROL_FINISH | STM32WB_FWU_CONTROL_INSTALL;
+        self->m_request.mode = STM32WB_FWU_MODE_NONE;
+        self->m_request.offset = 0;
+        self->m_request.data = NULL;
+        self->m_request.size = 0;
+        self->m_request.callback = (stm32wb_fwu_done_callback_t)BLEOta::doneCallback;
+        self->m_request.context = self;
+        
+        stm32wb_fwu_request(&self->m_request);
+
+        return;
+    }
+    
+    if (self->m_state == BLE_OTA_STATE_FINISH_CHECK) {
+        stm32wb_fwu_query(&info);
+
+        if (info.state == STM32WB_FWU_STATE_STAGED) {
+            self->m_state = BLE_OTA_STATE_REBOOT;
+            
+            event.event = BLE_OTA_EVENT_REBOOT_CONFIRMED;
+            
+            self->m_event_characteristic.writeValue(&event, BLE_OTA_EVENT_SIZE, stm32wb_system_reset);
+        } else {
+            self->m_state = BLE_OTA_STATE_FINISH_CLEAN;
+
+            self->m_busy = true;
+
+            self->m_request.control = STM32WB_FWU_CONTROL_CLEAN;
+            self->m_request.mode = STM32WB_FWU_MODE_NONE;
+            self->m_request.offset = 0;
+            self->m_request.data = NULL;
+            self->m_request.size = 0;
+            self->m_request.callback = (stm32wb_fwu_done_callback_t)BLEOta::doneCallback;
+            self->m_request.context = self;
+            
+            stm32wb_fwu_request(&self->m_request);
+
+            return;
+        }
+    }
+
+    if ((self->m_state == BLE_OTA_STATE_FINISH_CLEAN) || (self->m_state == BLE_OTA_STATE_CANCEL_CLEAN)) {
+        self->m_state = BLE_OTA_STATE_START;
+        self->m_status = BLE_OTA_STATUS_OK;
+
+        event.event = BLE_OTA_EVENT_CLEAN;
+
+        self->m_event_characteristic.writeValue(&event, BLE_OTA_EVENT_SIZE);
+    }
+}
+
+void BLEOta::commandCallback() {
+    uint32_t length;
+    const uint8_t *data;
+    ble_ota_event_t event;
+    
+    if (m_command_characteristic.written()) {
+        length = m_command_characteristic.valueLength();
+        data = (const uint8_t *)m_command_characteristic.value();
+
+        if (length) {
+            switch (data[0]) {
+            case BLE_OTA_COMMAND_STOP: {
+                m_state = BLE_OTA_STATE_STOP;
+                break;
+            }
+                
+            case BLE_OTA_COMMAND_START_WIRELESS: {
+#if (BLE_TRACE_SUPPORTED == 1)
+                armv7m_rtt_printf("START_WIRELESS\n");
+#endif
+                
+                if (m_state == BLE_OTA_STATE_START) {
+                    m_state = BLE_OTA_STATE_DATA;
+
+                    m_head = 0;
+                    m_tail = 0;
+                    m_offset = 0;
+                    m_count = 0;
+
+                    m_busy = true;
+
+                    m_request.control = STM32WB_FWU_CONTROL_CLEAN | STM32WB_FWU_CONTROL_START;
+                    m_request.mode = STM32WB_FWU_MODE_WIRELESS;
+                    m_request.offset = 0;
+                    m_request.data = NULL;
+                    m_request.size = 0;
+                    m_request.callback = (length >= BLE_OTA_COMMAND_SIZE_START_READY) ? (stm32wb_fwu_done_callback_t)BLEOta::readyCallback : (stm32wb_fwu_done_callback_t)BLEOta::doneCallback;
+                    m_request.context = this;
+                    
+                    stm32wb_fwu_request(&m_request);
+                } else {
+                    if (length == BLE_OTA_COMMAND_SIZE_START_READY) {
+                        event.event = BLE_OTA_EVENT_NOT_READY_TO_RECEIVE_FILE;
+                        
+                        m_event_characteristic.writeValue(&event, BLE_OTA_EVENT_SIZE);
+                    }
+                }
+                break;
+            }
+                
+            case BLE_OTA_COMMAND_START_APPLICATION: {
+#if (BLE_TRACE_SUPPORTED == 1)
+                armv7m_rtt_printf("START_APPLICATION\n");
+#endif
+  
+                if (m_state == BLE_OTA_STATE_START) {
+                    m_state = BLE_OTA_STATE_DATA;
+
+                    m_head = 0;
+                    m_tail = 0;
+                    m_offset = 0;
+                    m_count = 0;
+
+                    m_busy = true;
+
+                    m_request.control = STM32WB_FWU_CONTROL_CLEAN | STM32WB_FWU_CONTROL_START;
+                    m_request.mode = STM32WB_FWU_MODE_APPLICATION;
+                    m_request.offset = 0;
+                    m_request.data = NULL;
+                    m_request.size = 0;
+                    m_request.callback = (length >= BLE_OTA_COMMAND_SIZE_START_READY) ? (stm32wb_fwu_done_callback_t)BLEOta::readyCallback : (stm32wb_fwu_done_callback_t)BLEOta::doneCallback;
+                    m_request.context = this;
+                    
+                    stm32wb_fwu_request(&m_request);
+                } else {
+                    if (length == BLE_OTA_COMMAND_SIZE_START_READY) {
+                        event.event = BLE_OTA_EVENT_NOT_READY_TO_RECEIVE_FILE;
+                        
+                        m_event_characteristic.writeValue(&event, BLE_OTA_EVENT_SIZE);
+                    }
+                }
+                break;
+            }
+            
+            case BLE_OTA_COMMAND_FINISH: {
+#if (BLE_TRACE_SUPPORTED == 1)
+                armv7m_rtt_printf("FINISH\n");
+#endif
+                
+                if (m_state == BLE_OTA_STATE_DATA) {
+                    m_state = BLE_OTA_STATE_FINISH;
+
+                    k_work_submit(&m_work);
+                }
+                break;
+            }
+            
+            case BLE_OTA_COMMAND_CANCEL: {
+#if (BLE_TRACE_SUPPORTED == 1)
+                armv7m_rtt_printf("CANCEL\n");
+#endif
+  
+                // STOP
+                // START
+                // DATA
+                // FINISH
+                if (m_state < BLE_OTA_STATE_CANCEL)
+                {
+                    m_state = BLE_OTA_STATE_CANCEL;
+
+                    k_work_submit(&m_work);
+                }
+                break;
+            }
+
+            default:
+#if (BLE_TRACE_SUPPORTED == 1)
+                armv7m_rtt_printf("UNKNOWN %02x (%d)\n", data[0], length);
+#endif                
+                break;
+            }
+        }
+    }
+}
+
+void BLEOta::dataCallback() {
+    uint32_t head, tail, length, count, size;
+    const uint8_t *data;
+    ble_ota_status_t status;
+    
+    if (m_data_characteristic.written()) {
+        length = m_data_characteristic.valueLength();
+        data = (const uint8_t *)m_data_characteristic.value();
+
+        if (m_state == BLE_OTA_STATE_DATA) {
+            head = m_head;
+            tail = m_tail;
+            
+            if (tail >= head) {
+                count = BLE_OTA_QUEUE_SIZE - (tail - head) -1;
+            } else {
+                count = BLE_OTA_QUEUE_SIZE - ((BLE_OTA_QUEUE_SIZE - head) + tail) -1;
+            }
+            
+            if (count < length) {
+#if (BLE_TRACE_SUPPORTED == 1)
+                armv7m_rtt_printf("### OVERFLOW ### (%d %d)\n", count, length);
+#endif
+                
+                m_state = BLE_OTA_STATE_STOP;
+                m_status = BLE_OTA_STATUS_ERR_OVERFLOW;
+
+                if (m_status_characteristic.subscribed()) {
+                    status.status = m_status; 
+                    status.count[0] = m_count >> 0;
+                    status.count[1] = m_count >> 8;
+                    status.count[2] = m_count >> 16;
+                    status.state = ble_ota_xlate_state[m_state];
+                    
+                    m_status_characteristic.writeValue(&status, sizeof(status));
+                }
+
+                return;
+            } else {
+                m_count += length;
+            }
+            
+            if (count > length) {
+                count = length;
+            }
+            
+            if (count) {
+                size = BLE_OTA_QUEUE_SIZE - tail;
+                
+                if (size > count) {
+                    size = count;
+                }
+                
+                if (size) {
+                    memcpy(&m_data[tail], &data[0], size);
+                }
+                
+                if (size != count) {
+                    memcpy(&m_data[0], &data[size], (count - size));
+                }
+                
+                tail += count;
+                
+                if (tail >= BLE_OTA_QUEUE_SIZE) {
+                    tail -= BLE_OTA_QUEUE_SIZE;
+                }
+                
+#if (BLE_TRACE_SUPPORTED == 1)
+                armv7m_rtt_printf("ENQUEUE(%d, %d) -> %d /%d\n", m_tail, count, tail, level);
+#endif
+                
+                m_tail = tail;
+                
+                k_work_submit(&m_work);
+            }
+        }
+    }
+}
+
+void BLEOta::statusCallback() {
+    ble_ota_status_t status;
+
+    status.status = m_status;
+    status.count[0] = m_count >> 0;
+    status.count[1] = m_count >> 8;
+    status.count[2] = m_count >> 16;
+    status.state = ble_ota_xlate_state[m_state];
+    
+    m_status_characteristic.setValue(&status, sizeof(status));
+
+    m_status = BLE_OTA_STATUS_OK;
 }

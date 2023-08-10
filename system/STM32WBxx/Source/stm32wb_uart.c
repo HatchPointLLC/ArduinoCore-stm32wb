@@ -73,8 +73,8 @@ static stm32wb_uart_device_t stm32wb_uart_device;
 
 #if (STM32WB_UART_SPI_SUPPORTED == 1)
 
-static __attribute__((section(".dma"))) uint8_t stm32wb_uart_spi_dma_rx_none;
-static __attribute__((section(".dma"))) uint8_t stm32wb_uart_spi_dma_tx_default;
+static __attribute__((section(".noinit"))) uint8_t stm32wb_uart_spi_dma_rx_none;
+static __attribute__((section(".noinit"))) uint8_t stm32wb_uart_spi_dma_tx_default;
 
 #define STM32WB_UART_SPI_RX_DMA_OPTION_RECEIVE    \
     (STM32WB_DMA_OPTION_PERIPHERAL_TO_MEMORY |    \

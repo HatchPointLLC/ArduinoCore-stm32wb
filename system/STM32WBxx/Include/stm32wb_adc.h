@@ -66,13 +66,13 @@ extern "C" {
 #define STM32WB_ADC_TSENSE_CAL2_TEMP                (130.0)
 #define STM32WB_ADC_TSENSE_CAL_VREF                 (3.0)
   
-#define STM32WB_ADC_VREFINT_PERIOD                  4   /* uS */
-#define STM32WB_ADC_TSENSE_PERIOD                   5   /* uS */
-#define STM32WB_ADC_VBAT_PERIOD                     12  /* uS */
+#define STM32WB_ADC_VREFINT_PERIOD                  4000   /* nS */
+#define STM32WB_ADC_TSENSE_PERIOD                   5000   /* nS */
+#define STM32WB_ADC_VBAT_PERIOD                     12000  /* nS */
 
-extern bool stm32wb_adc_enable(void);
-extern bool stm32wb_adc_disable(void);
-extern uint32_t stm32wb_adc_read(unsigned int channel, unsigned int period);
+extern void __stm32wb_adc_initialize(void);
+  
+extern uint32_t stm32wb_adc_convert(uint32_t channel, uint32_t period);
 
 #ifdef __cplusplus
 }

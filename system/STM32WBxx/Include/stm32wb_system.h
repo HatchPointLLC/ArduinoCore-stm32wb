@@ -233,7 +233,6 @@ extern uint32_t stm32wb_system_pclk2(void);
 extern uint32_t stm32wb_system_saiclk(void);
 extern bool     stm32wb_system_cpu2(void);
 extern bool     stm32wb_system_wireless(void);
-extern uint64_t stm32wb_system_serial(void);
 extern void     stm32wb_system_uid(uint32_t *uid);
 extern void     stm32wb_system_periph_reset(uint32_t periph);
 extern void     stm32wb_system_periph_enable(uint32_t periph);
@@ -247,6 +246,7 @@ extern void     stm32wb_system_lock(uint32_t lock);
 extern void     stm32wb_system_unlock(uint32_t lock);
 extern void     stm32wb_system_reference(uint32_t reference); 
 extern void     stm32wb_system_unreference(uint32_t reference); 
+extern void     stm32wb_system_policy(uint32_t policy);
 extern void     stm32wb_system_sleep(uint32_t policy);
 extern void     stm32wb_system_wakeup(void);
 extern void     stm32wb_system_standby(uint32_t wakeup, uint32_t timeout);
@@ -254,6 +254,7 @@ extern void     stm32wb_system_shutdown(uint32_t wakeup);
 extern void     stm32wb_system_fatal(void) __attribute__((noreturn));
 extern void     stm32wb_system_reset(void) __attribute__((noreturn));
 extern void     stm32wb_system_dfu(void) __attribute__((noreturn));
+extern void     stm32wb_system_ota(void) __attribute__((noreturn));
 
 #define STM32WB_PVD_PVM_IRQ_PRIORITY ARMV7M_IRQ_PRIORITY_MEDIUM
   
@@ -320,7 +321,105 @@ extern void DMA2_Channel5_IRQHandler(void);
 extern void DMA2_Channel6_IRQHandler(void);
 extern void DMA2_Channel7_IRQHandler(void);
 extern void DMAMUX1_OVR_IRQHandler(void);
+
   
+#define PWR_CR1_VOS_RANGE_1        (1 << PWR_CR1_VOS_Pos)
+#define PWR_CR1_VOS_RANGE_2        (2 << PWR_CR1_VOS_Pos)
+
+#define PWR_CR1_LPMS_STOP0         (0 << PWR_CR1_LPMS_Pos)
+#define PWR_CR1_LPMS_STOP1         (1 << PWR_CR1_LPMS_Pos)
+#define PWR_CR1_LPMS_STOP2         (2 << PWR_CR1_LPMS_Pos)
+#define PWR_CR1_LPMS_STANDBY       (3 << PWR_CR1_LPMS_Pos)
+#define PWR_CR1_LPMS_SHUTDOWN      (4 << PWR_CR1_LPMS_Pos)
+
+#define PWR_C2CR1_LPMS_STOP0       (0 << PWR_C2CR1_LPMS_Pos)
+#define PWR_C2CR1_LPMS_STOP1       (1 << PWR_C2CR1_LPMS_Pos)
+#define PWR_C2CR1_LPMS_STOP2       (2 << PWR_C2CR1_LPMS_Pos)
+#define PWR_C2CR1_LPMS_STANDBY     (3 << PWR_C2CR1_LPMS_Pos)
+#define PWR_C2CR1_LPMS_SHUTDOWN    (4 << PWR_C2CR1_LPMS_Pos)
+
+#define RCC_CFGR_SW_MSI            (0 << RCC_CFGR_SW_Pos)
+#define RCC_CFGR_SW_HSI            (1 << RCC_CFGR_SW_Pos)
+#define RCC_CFGR_SW_HSE            (2 << RCC_CFGR_SW_Pos)
+#define RCC_CFGR_SW_PLL            (3 << RCC_CFGR_SW_Pos)
+
+#define RCC_CFGR_SWS_MSI           (0 << RCC_CFGR_SWS_Pos)
+#define RCC_CFGR_SWS_HSI           (1 << RCC_CFGR_SWS_Pos)
+#define RCC_CFGR_SWS_HSE           (2 << RCC_CFGR_SWS_Pos)
+#define RCC_CFGR_SWS_PLL           (3 << RCC_CFGR_SWS_Pos)
+
+#define RCC_CFGR_HPRE_DIV1         ( 0 << RCC_CFGR_HPRE_Pos)
+#define RCC_CFGR_HPRE_DIV3         ( 1 << RCC_CFGR_HPRE_Pos)
+#define RCC_CFGR_HPRE_DIV5         ( 2 << RCC_CFGR_HPRE_Pos)
+#define RCC_CFGR_HPRE_DIV6         ( 5 << RCC_CFGR_HPRE_Pos)
+#define RCC_CFGR_HPRE_DIV10        ( 6 << RCC_CFGR_HPRE_Pos)
+#define RCC_CFGR_HPRE_DIV32        ( 7 << RCC_CFGR_HPRE_Pos)
+#define RCC_CFGR_HPRE_DIV2         ( 8 << RCC_CFGR_HPRE_Pos)
+#define RCC_CFGR_HPRE_DIV4         ( 9 << RCC_CFGR_HPRE_Pos)
+#define RCC_CFGR_HPRE_DIV8         (10 << RCC_CFGR_HPRE_Pos)
+#define RCC_CFGR_HPRE_DIV16        (11 << RCC_CFGR_HPRE_Pos)
+#define RCC_CFGR_HPRE_DIV64        (12 << RCC_CFGR_HPRE_Pos)
+#define RCC_CFGR_HPRE_DIV128       (13 << RCC_CFGR_HPRE_Pos)
+#define RCC_CFGR_HPRE_DIV256       (14 << RCC_CFGR_HPRE_Pos)
+#define RCC_CFGR_HPRE_DIV512       (15 << RCC_CFGR_HPRE_Pos)
+
+#define RCC_CFGR_PPRE1_DIV1        ( 0 << RCC_CFGR_PPRE1_Pos)
+#define RCC_CFGR_PPRE1_DIV2        ( 4 << RCC_CFGR_PPRE1_Pos)
+#define RCC_CFGR_PPRE1_DIV4        ( 5 << RCC_CFGR_PPRE1_Pos)
+#define RCC_CFGR_PPRE1_DIV8        ( 6 << RCC_CFGR_PPRE1_Pos)
+#define RCC_CFGR_PPRE1_DIV16       ( 7 << RCC_CFGR_PPRE1_Pos)
+
+#define RCC_CFGR_PPRE2_DIV1        ( 0 << RCC_CFGR_PPRE2_Pos)
+#define RCC_CFGR_PPRE2_DIV2        ( 4 << RCC_CFGR_PPRE2_Pos)
+#define RCC_CFGR_PPRE2_DIV4        ( 5 << RCC_CFGR_PPRE2_Pos)
+#define RCC_CFGR_PPRE2_DIV8        ( 6 << RCC_CFGR_PPRE2_Pos)
+#define RCC_CFGR_PPRE2_DIV16       ( 7 << RCC_CFGR_PPRE2_Pos)
+
+#define RCC_PLLCFGR_PLLSRC_NONE    (0 << RCC_PLLCFGR_PLLSRC_Pos)
+#define RCC_PLLCFGR_PLLSRC_MSI     (1 << RCC_PLLCFGR_PLLSRC_Pos)
+#define RCC_PLLCFGR_PLLSRC_HSI     (2 << RCC_PLLCFGR_PLLSRC_Pos)
+#define RCC_PLLCFGR_PLLSRC_HSE     (3 << RCC_PLLCFGR_PLLSRC_Pos)
+
+#define RCC_EXTCFGR_SHDHPRE_DIV1   ( 0 << RCC_EXTCFGR_SHDHPRE_Pos)
+#define RCC_EXTCFGR_SHDHPRE_DIV3   ( 1 << RCC_EXTCFGR_SHDHPRE_Pos)
+#define RCC_EXTCFGR_SHDHPRE_DIV5   ( 2 << RCC_EXTCFGR_SHDHPRE_Pos)
+#define RCC_EXTCFGR_SHDHPRE_DIV6   ( 5 << RCC_EXTCFGR_SHDHPRE_Pos)
+#define RCC_EXTCFGR_SHDHPRE_DIV10  ( 6 << RCC_EXTCFGR_SHDHPRE_Pos)
+#define RCC_EXTCFGR_SHDHPRE_DIV32  ( 7 << RCC_EXTCFGR_SHDHPRE_Pos)
+#define RCC_EXTCFGR_SHDHPRE_DIV2   ( 8 << RCC_EXTCFGR_SHDHPRE_Pos)
+#define RCC_EXTCFGR_SHDHPRE_DIV4   ( 9 << RCC_EXTCFGR_SHDHPRE_Pos)
+#define RCC_EXTCFGR_SHDHPRE_DIV8   (10 << RCC_EXTCFGR_SHDHPRE_Pos)
+#define RCC_EXTCFGR_SHDHPRE_DIV16  (11 << RCC_EXTCFGR_SHDHPRE_Pos)
+#define RCC_EXTCFGR_SHDHPRE_DIV64  (12 << RCC_EXTCFGR_SHDHPRE_Pos)
+#define RCC_EXTCFGR_SHDHPRE_DIV128 (13 << RCC_EXTCFGR_SHDHPRE_Pos)
+#define RCC_EXTCFGR_SHDHPRE_DIV256 (14 << RCC_EXTCFGR_SHDHPRE_Pos)
+#define RCC_EXTCFGR_SHDHPRE_DIV512 (15 << RCC_EXTCFGR_SHDHPRE_Pos)
+
+#define RCC_EXTCFGR_C2HPRE_DIV1    ( 0 << RCC_EXTCFGR_C2HPRE_Pos)
+#define RCC_EXTCFGR_C2HPRE_DIV3    ( 1 << RCC_EXTCFGR_C2HPRE_Pos)
+#define RCC_EXTCFGR_C2HPRE_DIV5    ( 2 << RCC_EXTCFGR_C2HPRE_Pos)
+#define RCC_EXTCFGR_C2HPRE_DIV6    ( 5 << RCC_EXTCFGR_C2HPRE_Pos)
+#define RCC_EXTCFGR_C2HPRE_DIV10   ( 6 << RCC_EXTCFGR_C2HPRE_Pos)
+#define RCC_EXTCFGR_C2HPRE_DIV32   ( 7 << RCC_EXTCFGR_C2HPRE_Pos)
+#define RCC_EXTCFGR_C2HPRE_DIV2    ( 8 << RCC_EXTCFGR_C2HPRE_Pos)
+#define RCC_EXTCFGR_C2HPRE_DIV4    ( 9 << RCC_EXTCFGR_C2HPRE_Pos)
+#define RCC_EXTCFGR_C2HPRE_DIV8    (10 << RCC_EXTCFGR_C2HPRE_Pos)
+#define RCC_EXTCFGR_C2HPRE_DIV16   (11 << RCC_EXTCFGR_C2HPRE_Pos)
+#define RCC_EXTCFGR_C2HPRE_DIV64   (12 << RCC_EXTCFGR_C2HPRE_Pos)
+#define RCC_EXTCFGR_C2HPRE_DIV128  (13 << RCC_EXTCFGR_C2HPRE_Pos)
+#define RCC_EXTCFGR_C2HPRE_DIV256  (14 << RCC_EXTCFGR_C2HPRE_Pos)
+#define RCC_EXTCFGR_C2HPRE_DIV512  (15 << RCC_EXTCFGR_C2HPRE_Pos)
+
+#define RCC_SMPSCR_SMPSSEL_HSI     (0 << RCC_SMPSCR_SMPSSEL_Pos)
+#define RCC_SMPSCR_SMPSSEL_MSI     (1 << RCC_SMPSCR_SMPSSEL_Pos)
+#define RCC_SMPSCR_SMPSSEL_HSE     (2 << RCC_SMPSCR_SMPSSEL_Pos)
+#define RCC_SMPSCR_SMPSSEL_NONE    (3 << RCC_SMPSCR_SMPSSEL_Pos)
+
+#define RCC_SMPSCR_SMPSSWS_HSI     (0 << RCC_SMPSCR_SMPSSWS_Pos)
+#define RCC_SMPSCR_SMPSSWS_MSI     (1 << RCC_SMPSCR_SMPSSWS_Pos)
+#define RCC_SMPSCR_SMPSSWS_HSE     (2 << RCC_SMPSCR_SMPSSWS_Pos)
+#define RCC_SMPSCR_SMPSSWS_NONE    (3 << RCC_SMPSCR_SMPSSWS_Pos)
+
 #ifdef __cplusplus
 }
 #endif

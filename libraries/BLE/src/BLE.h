@@ -32,6 +32,8 @@
 #include <Arduino.h>
 #include <type_traits>
 
+#include "stm32wb_fwu.h"
+
 enum BLEOption : uint32_t {
     BLE_OPTION_RANDOM_STATIC_ADDRESS                         = 0x00000001,
     BLE_OPTION_PRIVACY                                       = 0x00000002,
@@ -504,6 +506,48 @@ private:
     void transmit();
     void receive();
     void connect();
+};
+
+#define BLE_OTA_SLICE_SIZE 512
+#define BLE_OTA_BLOCK_SIZE 4096
+#define BLE_OTA_QUEUE_SIZE 8192
+
+class BLEOta : public BLEService {
+public:
+    BLEOta();
+    BLEOta(const BLEOta&) = delete;
+    BLEOta& operator=(const BLEOta&) = delete;
+  
+private:
+    uint8_t                     m_busy;
+    uint8_t                     m_state;
+    uint8_t                     m_status;
+    uint8_t                     m_mode;
+
+    uint32_t                    m_head;
+    uint32_t                    m_tail;
+    uint32_t                    m_offset;
+    uint32_t                    m_count;
+    uint8_t                     m_slice[BLE_OTA_SLICE_SIZE];
+    uint8_t                     m_data[BLE_OTA_QUEUE_SIZE];
+
+    k_work_t                    m_work;
+    stm32wb_fwu_request_t       m_request;
+
+    BLECharacteristic           m_command_characteristic;
+    BLECharacteristic           m_event_characteristic;
+    BLECharacteristic           m_data_characteristic;
+    BLECharacteristic           m_status_characteristic;
+    BLECharacteristic           m_size_characteristic;
+
+    static void                 doneCallback(class BLEOta *self);
+    static void                 readyCallback(class BLEOta *self);
+    static void                 writeCallback(class BLEOta *self);
+    static void                 queueCallback(class BLEOta *self);
+
+    void                        commandCallback();
+    void                        dataCallback();
+    void                        statusCallback();
 };
 
 #endif // BLE_H

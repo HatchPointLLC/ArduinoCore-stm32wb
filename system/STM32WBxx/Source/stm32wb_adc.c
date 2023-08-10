@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017 Thomas Roell.  All rights reserved.
+ * Copyright (c) 2016-2023 Thomas Roell.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
@@ -32,11 +32,6 @@
 #include "stm32wb_adc.h"
 #include "stm32wb_system.h"
 
-#define ADC_CFGR2_CKMODE_SYSCLK     0
-#define ADC_CFGR2_CKMODE_PCLK_DIV_2 (ADC_CFGR2_CKMODE_0)
-#define ADC_CFGR2_CKMODE_PCLK_DIV_4 (ADC_CFGR2_CKMODE_1)
-#define ADC_CFGR2_CKMODE_PCLK_DIV_1 (ADC_CFGR2_CKMODE_1 | ADC_CFGR2_CKMODE_0)
-
 #define ADC_SAMPLE_TIME_2_5         0
 #define ADC_SAMPLE_TIME_6_5         1
 #define ADC_SAMPLE_TIME_12_5        2
@@ -45,6 +40,11 @@
 #define ADC_SAMPLE_TIME_92_5        5
 #define ADC_SAMPLE_TIME_247_5       6
 #define ADC_SAMPLE_TIME_640_5       7
+
+#define ADC_CCR_CKMODE_SYSCLK       0
+#define ADC_CCR_CKMODE_HCLK_DIV_1   (ADC_CCR_CKMODE_0)
+#define ADC_CCR_CKMODE_HCLK_DIV_2   (ADC_CCR_CKMODE_1)
+#define ADC_CCR_CKMODE_HCLK_DIV_4   (ADC_CCR_CKMODE_0 | ADC_CCR_CKMODE_1)
 
 #define ADC_CCR_PRESC_DIV_1         0
 #define ADC_CCR_PRESC_DIV_2         (ADC_CCR_PRESC_0)
@@ -59,218 +59,227 @@
 #define ADC_CCR_PRESC_DIV_128       (ADC_CCR_PRESC_3 | ADC_CCR_PRESC_1)
 #define ADC_CCR_PRESC_DIV_256       (ADC_CCR_PRESC_3 | ADC_CCR_PRESC_1 | ADC_CCR_PRESC_0)
 
-#define STM32WB_ADC_STATE_NONE      0
-#define STM32WB_ADC_STATE_NOT_READY 1
-#define STM32WB_ADC_STATE_READY     2
-#define STM32WB_ADC_STATE_BUSY      3
+#define STM32WB_ADC_CALFACT_UNDEFINED 0xffffffff
+
+#define STM32WB_ADC_SAMPLE_TIME(_ticks, _adcclk) ((uint32_t)((((double)(_ticks) * (double)1e9) / (double)(_adcclk)) + 0.5))
+
+static const uint32_t stm32wb_adc_threshold_2[8] = {
+    STM32WB_ADC_SAMPLE_TIME(2.5,   2000000),
+    STM32WB_ADC_SAMPLE_TIME(6.5,   2000000),
+    STM32WB_ADC_SAMPLE_TIME(12.5,  2000000),
+    STM32WB_ADC_SAMPLE_TIME(24.5,  2000000),
+    STM32WB_ADC_SAMPLE_TIME(47.5,  2000000),
+    STM32WB_ADC_SAMPLE_TIME(92.5,  2000000),
+    STM32WB_ADC_SAMPLE_TIME(247.5, 2000000),
+    STM32WB_ADC_SAMPLE_TIME(640.5, 2000000),
+};
+
+static const uint32_t stm32wb_adc_threshold_16[8] = {
+    STM32WB_ADC_SAMPLE_TIME(2.5,   16000000),
+    STM32WB_ADC_SAMPLE_TIME(6.5,   16000000),
+    STM32WB_ADC_SAMPLE_TIME(12.5,  16000000),
+    STM32WB_ADC_SAMPLE_TIME(24.5,  16000000),
+    STM32WB_ADC_SAMPLE_TIME(47.5,  16000000),
+    STM32WB_ADC_SAMPLE_TIME(92.5,  16000000),
+    STM32WB_ADC_SAMPLE_TIME(247.5, 16000000),
+    STM32WB_ADC_SAMPLE_TIME(640.5, 16000000),
+};
+
+static const uint32_t stm32wb_adc_threshold_32[8] = {
+    STM32WB_ADC_SAMPLE_TIME(2.5,   32000000),
+    STM32WB_ADC_SAMPLE_TIME(6.5,   32000000),
+    STM32WB_ADC_SAMPLE_TIME(12.5,  32000000),
+    STM32WB_ADC_SAMPLE_TIME(24.5,  32000000),
+    STM32WB_ADC_SAMPLE_TIME(47.5,  32000000),
+    STM32WB_ADC_SAMPLE_TIME(92.5,  32000000),
+    STM32WB_ADC_SAMPLE_TIME(247.5, 32000000),
+    STM32WB_ADC_SAMPLE_TIME(640.5, 32000000),
+};
+
+#define STM32WB_ADC_CALFACT_UNDEFINED 0xffffffff
 
 typedef struct _stm32wb_adc_device_t {
-    volatile uint8_t             state;
-    uint8_t                      calibration;
+    uint32_t                  hclk;
+    uint32_t                  calfact;
+    uint32_t                  smp;
+    uint32_t                  period;
+    const uint32_t            *threshold;
 } stm32wb_adc_device_t;
 
 static stm32wb_adc_device_t stm32wb_adc_device;
 
-bool stm32wb_adc_enable(void)
+static int32_t __svc_stm32wb_adc_convert(uint32_t channel, uint32_t period)
 {
-    if (armv7m_atomic_casb(&stm32wb_adc_device.state, STM32WB_ADC_STATE_NONE, STM32WB_ADC_STATE_NOT_READY) != STM32WB_ADC_STATE_NONE)
-    {
-        return false;
-    }
-
-    stm32wb_system_lock(STM32WB_SYSTEM_LOCK_CLOCKS);
+    uint32_t hclk, ckmode, smp, data;
     
     stm32wb_system_periph_enable(STM32WB_SYSTEM_PERIPH_ADC);
 
-    if (stm32wb_system_hclk() > 48000000)
+    hclk = stm32wb_system_hclk();
+
+    if (stm32wb_adc_device.hclk != hclk)
     {
-        ADC1_COMMON->CCR = (ADC1_COMMON->CCR & ~ADC_CCR_CKMODE) | ADC_CCR_CKMODE_1; /* HCLK / 2 */
+        if (hclk == 2000000)
+        {
+            ckmode = ADC_CCR_CKMODE_HCLK_DIV_1;
+            
+            stm32wb_adc_device.threshold = stm32wb_adc_threshold_2;
+        }
+        else if (hclk == 1600000)
+        {
+            ckmode = ADC_CCR_CKMODE_HCLK_DIV_1;
+            
+            stm32wb_adc_device.threshold = stm32wb_adc_threshold_16;
+        }
+        else
+        {
+            /* Use a 32MHz ADCCLK, so that a 40uS sampling time can be achieved.
+             */
+            
+            if (hclk == 32000000) { ckmode = ADC_CCR_CKMODE_HCLK_DIV_1; }
+            else                  { ckmode = ADC_CCR_CKMODE_HCLK_DIV_2; }
+            
+            stm32wb_adc_device.threshold = stm32wb_adc_threshold_32;
+        }
+
+        ADC1_COMMON->CCR = (ADC1_COMMON->CCR & ~(ADC_CCR_CKMODE | ADC_CCR_PRESC)) | ckmode;
+    
+        stm32wb_adc_device.hclk = hclk;
+        stm32wb_adc_device.calfact = STM32WB_ADC_CALFACT_UNDEFINED;
+        stm32wb_adc_device.smp = 0;
+        stm32wb_adc_device.period = 0;
     }
-    else
-    {
-        ADC1_COMMON->CCR = (ADC1_COMMON->CCR & ~ADC_CCR_CKMODE) | ADC_CCR_CKMODE_0; /* HCLK / 1 */
-    }
 
-    ADC1_COMMON->CCR |= ADC_CCR_VREFEN;
+    ADC1->CR = 0; // reset ADC_CR_DEEPPWD
 
-    ADC1->CR &= ~ADC_CR_DEEPPWD;
-
-    ADC1->CR |= ADC_CR_ADVREGEN;
+    ADC1->CR = ADC_CR_ADVREGEN;
     
     armv7m_core_udelay(20);
-    
-    /* Finally turn on the ADC */
+
+    if (stm32wb_adc_device.calfact == STM32WB_ADC_CALFACT_UNDEFINED)
+    {
+	ADC1->CR = ADC_CR_ADVREGEN | ADC_CR_ADCAL;
+	
+	while (ADC1->CR & ADC_CR_ADCAL)
+	{
+	}
+	
+	stm32wb_adc_device.calfact = ADC1->CALFACT;
+    }
     
     ADC1->ISR = ADC_ISR_ADRDY;
 
     do
     {
-	ADC1->CR |= ADC_CR_ADEN;
+	ADC1->CR = ADC_CR_ADVREGEN | ADC_CR_ADEN;
     }
     while (!(ADC1->ISR & ADC_ISR_ADRDY));
-    
-    ADC1->CFGR = ADC_CFGR_OVRMOD | ADC_CFGR_JQDIS;
 
-    if (!stm32wb_adc_device.calibration)
+    if (channel == STM32WB_ADC_CHANNEL_VREFINT)
     {
-	ADC1->CR |= ADC_CR_ADDIS;
-	
-	while (ADC1->CR & ADC_CR_ADEN)
-	{
-	}
-	
-	/* Single-Ended Input Calibration */
-	ADC1->CR &= ~ADC_CR_ADCALDIF;
-	ADC1->CR |= ADC_CR_ADCAL;
-	
-	while (ADC1->CR & ADC_CR_ADCAL)
-	{
-	}
-	
-	/* Differential Input Calibration */
-	ADC1->CR |= (ADC_CR_ADCALDIF | ADC_CR_ADCAL);
-	
-	while (ADC1->CR & ADC_CR_ADCAL)
-	{
-	}
-	
-	armv7m_core_udelay(100);
-	
-	ADC1->ISR = ADC_ISR_ADRDY;
-	
-	do
-	{
-	    ADC1->CR |= ADC_CR_ADEN;
-	}
-	while (!(ADC1->ISR & ADC_ISR_ADRDY));
-
-	stm32wb_adc_device.calibration = 1;
-    }
-    
-    stm32wb_adc_device.state = STM32WB_ADC_STATE_READY;
-
-    return true;
-}
-
-bool stm32wb_adc_disable(void)
-{
-    if (armv7m_atomic_casb(&stm32wb_adc_device.state, STM32WB_ADC_STATE_READY, STM32WB_ADC_STATE_NOT_READY) != STM32WB_ADC_STATE_READY)
-    {
-        return false;
-    }
-
-    ADC1->CR |= ADC_CR_ADDIS;
-
-    while (ADC1->CR & ADC_CR_ADEN)
-    {
-    }
-
-    ADC1->CR &= ~ADC_CR_ADVREGEN;
-    ADC1->CR |= ADC_CR_DEEPPWD;
-
-    ADC1_COMMON->CCR &= ~ADC_CCR_VREFEN;
-
-    stm32wb_system_periph_disable(STM32WB_SYSTEM_PERIPH_ADC);
-
-    stm32wb_system_unlock(STM32WB_SYSTEM_LOCK_CLOCKS);
-
-    stm32wb_adc_device.state = STM32WB_ADC_STATE_NONE;
-
-    return true;
-}
-
-uint32_t stm32wb_adc_read(unsigned int channel, unsigned int period)
-{
-    uint32_t convert, threshold, hclk, adcclk, adc_smp;
-
-    if (armv7m_atomic_casb(&stm32wb_adc_device.state, STM32WB_ADC_STATE_READY, STM32WB_ADC_STATE_BUSY) != STM32WB_ADC_STATE_READY)
-    {
-        return 0;
-    }
-
-    if (channel >= STM32WB_ADC_CHANNEL_TSENSE)
-    {
-        if (channel == STM32WB_ADC_CHANNEL_TSENSE)
-        {
-            ADC1_COMMON->CCR |= ADC_CCR_TSEN;
-            
-            armv7m_core_udelay(120);
-        }
-        else
-        {
-            ADC1_COMMON->CCR |= ADC_CCR_VBATEN;
-        }
-    }
-
-    hclk = stm32wb_system_hclk();
-    
-    if (hclk > 48000000)
-    {
-	adcclk = hclk / 2;
+        ADC1_COMMON->CCR |= ADC_CCR_VREFEN;
     }
     else
     {
-	adcclk = hclk;
+        if (channel >= STM32WB_ADC_CHANNEL_TSENSE)
+        {
+            if (channel == STM32WB_ADC_CHANNEL_TSENSE)
+            {
+                ADC1_COMMON->CCR |= ADC_CCR_TSEN;
+                
+                armv7m_core_udelay(120);
+            }
+            else
+            {
+                ADC1_COMMON->CCR |= ADC_CCR_VBATEN;
+            }
+        }
     }
 
-    /* period is in uS. 1e6 / adcclk is one tick in terms of uS.
-     *
-     * (period * adcclk) / 1e6 is the threshold for the sampling time.
-     *
-     * The upper limit for period is 50uS, and adcclk limited to 48MHz,
-     * which means no overflow handling is needed.
-     */
-
-    if (period > 50)
+    if (stm32wb_adc_device.period != period)
     {
-        period = 50;
+        stm32wb_adc_device.period = period;
+
+        for (smp = 0; smp < 7; smp++)
+        {
+            if (period <= stm32wb_adc_device.threshold[smp])
+            {
+                break;
+            }
+        }
+
+        stm32wb_adc_device.smp = smp;
     }
     
-    threshold = ((uint32_t)period * adcclk);
-
-    if      (threshold < (uint32_t)(  2.5 * 1e6)) { adc_smp = ADC_SAMPLE_TIME_2_5;   } 
-    else if (threshold < (uint32_t)(  6.5 * 1e6)) { adc_smp = ADC_SAMPLE_TIME_6_5;   } 
-    else if (threshold < (uint32_t)( 12.5 * 1e6)) { adc_smp = ADC_SAMPLE_TIME_12_5;  } 
-    else if (threshold < (uint32_t)( 24.5 * 1e6)) { adc_smp = ADC_SAMPLE_TIME_24_5;  } 
-    else if (threshold < (uint32_t)( 47.5 * 1e6)) { adc_smp = ADC_SAMPLE_TIME_47_5;  } 
-    else if (threshold < (uint32_t)( 92.5 * 1e6)) { adc_smp = ADC_SAMPLE_TIME_92_5;  } 
-    else if (threshold < (uint32_t)(247.5 * 1e6)) { adc_smp = ADC_SAMPLE_TIME_247_5; } 
-    else                                          { adc_smp = ADC_SAMPLE_TIME_640_5; } 
-
-    ADC1->SQR1 = (channel << 6);
-    ADC1->SMPR1 = (channel < 10) ? (adc_smp << (channel * 3)) : 0;
-    ADC1->SMPR2 = (channel >= 10) ? (adc_smp << ((channel * 3) - 30)) : 0;
-
     /* Silicon ERRATA 2.4.4. Wrong ADC conversion results when delay between
      * calibration and first conversion or between 2 consecutive conversions is too long. 
      */
 
-    ADC1->CR |= ADC_CR_ADSTART;
-    
-    while (!(ADC1->ISR & ADC_ISR_EOC))
-    {
-    }
-    
-    convert = ADC1->DR & ADC_DR_RDATA;
+    ADC1->CFGR = ADC_CFGR_OVRMOD | ADC_CFGR_JQDIS;
+    ADC1->SMPR1 = 0;
+    ADC1->SMPR2 = 0;
+    ADC1->SQR1 = (channel << 6);
+    ADC1->CALFACT = stm32wb_adc_device.calfact;
 	
     ADC1->ISR = ADC_ISR_EOC;
-    
+
     ADC1->CR |= ADC_CR_ADSTART;
     
     while (!(ADC1->ISR & ADC_ISR_EOC))
     {
     }
     
-    convert = ADC1->DR & ADC_DR_RDATA;
+    data = ADC1->DR & ADC_DR_RDATA;
 
+    if (channel < 10)
+    {
+        ADC1->SMPR1 = stm32wb_adc_device.smp << (channel * 3);
+    }
+    else
+    {
+        ADC1->SMPR2 = stm32wb_adc_device.smp << ((channel * 3) - 30);
+    }
+    
     ADC1->ISR = ADC_ISR_EOC;
 
-    if (channel >= STM32WB_ADC_CHANNEL_TSENSE)
+    ADC1->CR |= ADC_CR_ADSTART;
+    
+    while (!(ADC1->ISR & ADC_ISR_EOC))
     {
-        ADC1_COMMON->CCR &= ~(ADC_CCR_VBATEN | ADC_CCR_TSEN);
+    }
+    
+    data = ADC1->DR & ADC_DR_RDATA;
+    
+    ADC1->CR = ADC_CR_ADVREGEN | ADC_CR_ADDIS;
+
+    while (ADC1->CR & ADC_CR_ADEN)
+    {
+    }
+    
+    ADC1->CR = 0; // reset ADC_CR_ADVREGEN
+
+    ADC1->CR = ADC_CR_DEEPPWD;
+    
+    ADC1_COMMON->CCR &= ~(ADC_CCR_VREFEN | ADC_CCR_VBATEN | ADC_CCR_TSEN);
+    ADC1_COMMON->CCR;
+
+    stm32wb_system_periph_disable(STM32WB_SYSTEM_PERIPH_ADC);
+
+    return data;
+}
+
+uint32_t stm32wb_adc_convert(uint32_t channel, uint32_t period)
+{
+    if (armv7m_core_is_in_thread())
+    {
+        return armv7m_svcall_2((uint32_t)&__svc_stm32wb_adc_convert, channel, period);
     }
 
-    stm32wb_adc_device.state = STM32WB_ADC_STATE_READY;
-    
-    return convert;
+    if (armv7m_core_is_in_svcall_or_pendsv())
+    {
+        return __svc_stm32wb_adc_convert(channel, period);
+    }
+
+    return 0;
 }
+
+

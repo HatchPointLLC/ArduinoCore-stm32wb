@@ -45,8 +45,8 @@ typedef struct _stm32wb_spi_device_t {
 
 static stm32wb_spi_device_t stm32wb_spi_device;
 
-static __attribute__((section(".dma"))) uint16_t stm32wb_spi_dma_rx_none;
-static __attribute__((section(".dma"))) uint16_t stm32wb_spi_dma_tx_default;
+static __attribute__((section(".noinit"))) uint16_t stm32wb_spi_dma_rx_none;
+static __attribute__((section(".noinit"))) uint16_t stm32wb_spi_dma_tx_default;
 
 #define SPI_CR1_BR_DIV2   (0)
 #define SPI_CR1_BR_DIV4   (SPI_CR1_BR_0)

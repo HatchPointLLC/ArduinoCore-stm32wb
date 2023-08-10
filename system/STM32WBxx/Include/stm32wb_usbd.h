@@ -177,7 +177,6 @@ typedef struct _stm32wb_usbd_info_t {
 } stm32wb_usbd_info_t;
 
 typedef struct _stm32wb_usbd_params_t {
-    uint8_t                              priority;
     uint16_t                             pin_vbus;
 } stm32wb_usbd_params_t;
 

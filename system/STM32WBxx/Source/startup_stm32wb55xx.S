@@ -49,22 +49,22 @@
         .align  2
         .globl  __Vectors
 __Vectors:
-        .long   0xbe00be00            /* Top of Stack */
-        .long   Reset_Handler         /* Reset Handler */
-        .long   NMI_Handler           /* NMI Handler */
-        .long   HardFault_Handler     /* Hard Fault Handler */
-        .long   MemManage_Handler     /* MPU Fault Handler */
-        .long   BusFault_Handler      /* Bus Fault Handler */
-        .long   UsageFault_Handler    /* Usage Fault Handler */
-        .long   0                     /* Reserved */
-        .long   0                     /* Reserved */
-        .long   0                     /* Reserved */
-        .long   0                     /* Reserved */
-        .long   SVC_Handler           /* SVCall Handler */
-        .long   DebugMon_Handler      /* Debug Monitor Handler */
-        .long   0                     /* Reserved */
-        .long   PendSV_Handler        /* PendSV Handler */
-        .long   SysTick_Handler       /* SysTick Handler */
+        .long   __StackTop                /* Top of Stack */
+        .long   Reset_Handler             /* Reset Handler */
+        .long   NMI_Handler               /* NMI Handler */
+        .long   HardFault_Handler         /* Hard Fault Handler */
+        .long   MemManage_Handler         /* MPU Fault Handler */
+        .long   BusFault_Handler          /* Bus Fault Handler */
+        .long   UsageFault_Handler        /* Usage Fault Handler */
+        .long   0                         /* Reserved */
+        .long   0x50410495                /* Reserved (magic) */
+        .long   stm32wb_boot_vectors + 0x4000 /* Reserved (base) */
+        .long   __application_flash__ - __Vectors /* Reserved (size) */
+        .long   SVC_Handler               /* SVCall Handler */
+        .long   DebugMon_Handler          /* Debug Monitor Handler */
+        .long   0                         /* Reserved (length) */
+        .long   PendSV_Handler            /* PendSV Handler */
+        .long   SysTick_Handler           /* SysTick Handler */
 
         /* External interrupts */
         .long   WWDG_IRQHandler

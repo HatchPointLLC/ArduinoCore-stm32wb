@@ -38,15 +38,21 @@ extern const unsigned int g_PWMInstances[PWM_INSTANCE_COUNT];
 static stm32wb_tim_t __analog_pwm[PWM_INSTANCE_COUNT];
 static uint8_t __analog_channels[PWM_INSTANCE_COUNT];
 
+static int __analog_readPeriod = 2000;
 static int __analog_readResolution = 10;
-static int __analog_readPeriod = 2;
 static int __analog_writeResolution = 8;
 static int __analog_writeFrequency = 0;
-static k_mutex_t __analog_mutex = K_MUTEX_INIT(K_PRIORITY_MIN, K_MUTEX_PRIORITY_INHERIT | K_MUTEX_RECURSIVE);;
 
 void analogReference(eAnalogReference reference)
 {
     (void)reference;
+}
+
+void analogReadPeriod(float period)
+{
+    if ((period >= 0.0f) && (period <= 20.0f)) {
+        __analog_readPeriod = (int)((period * 1000.0f) + 0.5f);
+    }
 }
 
 void analogReadResolution(int resolution)
@@ -54,32 +60,6 @@ void analogReadResolution(int resolution)
     if ((resolution >= 1) && (resolution <= 12)) {
         __analog_readResolution = resolution;
     }
-}
-
-void analogReadPeriod(int period)
-{
-    __analog_readPeriod = period;
-}
-
-uint32_t __analogReadChannel(uint32_t channel, uint32_t period)
-{
-    uint32_t data;
-
-    if (!k_task_is_in_progress()) {
-        return 0;
-    }
-
-    k_mutex_lock(&__analog_mutex, K_TIMEOUT_FOREVER);
-
-    stm32wb_adc_enable();
-
-    data = stm32wb_adc_read(channel, period);
-
-    stm32wb_adc_disable();
-
-    k_mutex_unlock(&__analog_mutex);
-    
-    return data;
 }
 
 uint32_t analogRead(uint32_t pin)
@@ -101,7 +81,7 @@ uint32_t analogRead(uint32_t pin)
 
     stm32wb_gpio_pin_configure(g_APinDescription[pin].pin, (STM32WB_GPIO_PUPD_NONE | STM32WB_GPIO_MODE_ANALOG));
     
-    input = __analogReadChannel((STM32WB_ADC_CHANNEL_1 + g_APinDescription[pin].adc_channel), __analog_readPeriod);
+    input = stm32wb_adc_convert((STM32WB_ADC_CHANNEL_1 + g_APinDescription[pin].adc_channel), __analog_readPeriod);
 
     if (__analog_readResolution != 12) {
         input = (input * ((1 << __analog_readResolution) -1)) / 4095;

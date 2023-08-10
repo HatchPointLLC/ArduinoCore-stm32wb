@@ -61,12 +61,11 @@
 
 class STM32WBClass {
 public:
-    static uint64_t getSerial();
     static void getUID(uint32_t uid[3]);
 
     static float readBattery();
     static float readTemperature();
-    static float readVDDA();
+    static float readVREF();
 
     static uint32_t resetCause();
     static uint32_t wakeupReason();

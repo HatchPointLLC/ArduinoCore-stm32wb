@@ -38,21 +38,22 @@ extern uint32_t __StackLimit[];
 
 #define K_TASK_STATE_WAIT_MASK       0x0007
 #define K_TASK_STATE_WAIT_NONE       0x0000
-#define K_TASK_STATE_WAIT_JOIN       0x0001
-#define K_TASK_STATE_WAIT_EVENT      0x0002
-#define K_TASK_STATE_WAIT_SEM        0x0003
-#define K_TASK_STATE_WAIT_MUTEX      0x0004
-#define K_TASK_STATE_TIMEOUT         0x0008
-#define K_TASK_STATE_SUSPENDED       0x0010
-#define K_TASK_STATE_TERMINATED      0x0020
-#define K_TASK_STATE_JOINABLE        0x0040
+#define K_TASK_STATE_WAIT_DELAY      0x0001
+#define K_TASK_STATE_WAIT_JOIN       0x0002
+#define K_TASK_STATE_WAIT_EVENT      0x0003
+#define K_TASK_STATE_WAIT_SEM        0x0004
+#define K_TASK_STATE_WAIT_MUTEX      0x0005
+#define K_TASK_STATE_SUSPENDED       0x0008
+#define K_TASK_STATE_TERMINATED      0x0010
+#define K_TASK_STATE_JOINABLE        0x0020
+#define K_TASK_STATE_TIMEOUT         0x0040
 #define K_TASK_STATE_READY           0x0080
 #define K_TASK_STATE_EVENT_ALL       0x0400
 #define K_TASK_STATE_EVENT_CLEAR     0x0800
 #define K_TASK_STATE_AFFINITY_MASK   0xf000
 #define K_TASK_STATE_AFFINITY_SHIFT  12
 
-#define K_TASK_STATE_CAUSE_MASK      0x003f
+#define K_TASK_STATE_CAUSE_MASK      0x001f
 
 /* Magic TASK values. Idea is that NULL means really "no task", i.e. the
  * "idle routine". However there is some special value required to separate
@@ -84,17 +85,21 @@ typedef void (*armv7m_rtos_task_alarm_routine_t)(void);
 typedef void (*armv7m_rtos_task_resume_routine_t)(void);
 typedef void (*armv7m_rtos_task_release_routine_t)(void);
 
+static const armv7m_rtos_wait_entry_t armv7m_rtos_delay_wait_entry;
 static const armv7m_rtos_wait_entry_t armv7m_rtos_join_wait_entry;
 static const armv7m_rtos_wait_entry_t armv7m_rtos_event_wait_entry;
 static const armv7m_rtos_wait_entry_t armv7m_rtos_sem_wait_entry;
 static const armv7m_rtos_wait_entry_t armv7m_rtos_mutex_wait_entry;
 
 typedef struct armv7m_rtos_control_t {
+    volatile uint8_t        system_state;
+    volatile uint8_t        system_policy;
+    uint8_t                 system_rfu[2];
+    k_task_t                *task_list;
     k_task_t                *task_self;
     k_task_t                *task_next;
     k_task_t                *task_ready;
     k_task_t                *task_default;
-    k_task_t                *task_link;
     k_task_t * volatile     task_resume;
     k_task_t * volatile     task_release;
     k_task_t                *task_timeout;
@@ -108,13 +113,11 @@ typedef struct armv7m_rtos_control_t {
     k_alarm_t * volatile    alarm_modify;
     uint64_t                alarm_clock;
     stm32wb_rtc_alarm_t     alarm_timer;
-    volatile uint8_t        system_state;
-    volatile uint8_t        system_policy;
     void                    *heap_current;
 #if (ARMV7M_RTOS_HOOK_SUPPORTED == 1)
     const k_hook_table_t    *hook_table;
 #endif /* ARMV7M_RTOS_HOOK_SUPPORTED == 1 */
-    const armv7m_rtos_wait_entry_t *wait_table[K_TASK_STATE_WAIT_MUTEX - K_TASK_STATE_WAIT_JOIN + 1];
+    const armv7m_rtos_wait_entry_t *wait_table[K_TASK_STATE_WAIT_MUTEX - K_TASK_STATE_WAIT_DELAY + 1];
     armv7m_rtos_task_alarm_routine_t alarm_routine;
     armv7m_rtos_task_resume_routine_t resume_routine;
     armv7m_rtos_task_release_routine_t release_routine;
@@ -122,11 +125,14 @@ typedef struct armv7m_rtos_control_t {
 
 static armv7m_rtos_control_t armv7m_rtos_control =
 {
+    .system_state = K_STATE_INACTIVE,
+    .system_policy = K_POLICY_SLEEP,
+    .system_rfu = { 0, 0 },
+    .task_list = NULL,
     .task_self = NULL,
     .task_next = NULL,
     .task_ready = NULL,
     .task_default = NULL,
-    .task_link = K_TASK_SENTINEL,
     .task_resume = K_TASK_SENTINEL,
     .task_release = K_TASK_SENTINEL,
     .task_timeout = NULL,
@@ -140,8 +146,6 @@ static armv7m_rtos_control_t armv7m_rtos_control =
     .alarm_modify = K_ALARM_SENTINEL,
     .alarm_clock = 0,
     .alarm_timer = STM32WB_RTC_ALARM_INIT(),
-    .system_state = K_STATE_INACTIVE,
-    .system_policy = K_POLICY_SLEEP,
     .heap_current = (void*)&__HeapBase[0],
 #if (ARMV7M_RTOS_HOOK_SUPPORTED == 1)
     .hook_table = NULL,
@@ -204,6 +208,9 @@ static void armv7m_rtos_timeout_absolute(k_task_t *task, uint64_t clock);
 static void armv7m_rtos_timeout_relative(k_task_t *task, uint32_t delay);
 static void armv7m_rtos_timeout_callback(void *context, uint64_t reference);
 static void armv7m_rtos_timeout_schedule(void);
+
+static void armv7m_rtos_delay_release(k_task_t *task);
+static void armv7m_rtos_delay_unblock(k_task_t *task);
 
 static void armv7m_rtos_join_release(k_task_t *task);
 static void armv7m_rtos_join_unblock(k_task_t *task);
@@ -356,6 +363,11 @@ static const k_hook_table_t armv7m_rtos_hook_table =
 #endif /* ARMV7M_RTOS_HOOK_SUPPORTED == 1 */
 
 /******************************************************************************************************************************/
+
+static const armv7m_rtos_wait_entry_t armv7m_rtos_delay_wait_entry = {
+    .release = armv7m_rtos_delay_release,
+    .unblock = armv7m_rtos_delay_unblock
+};
 
 static const armv7m_rtos_wait_entry_t armv7m_rtos_join_wait_entry = {
     .release = armv7m_rtos_join_release,
@@ -561,7 +573,7 @@ static void armv7m_rtos_system_initialize(const k_hook_table_t *hook_table)
     
     armv7m_rtos_control.task_default = task;
         
-    armv7m_rtos_task_create(task, "DEFAULT", K_PRIORITY_MIN, stack_limit, (stack_base - stack_limit), K_TASK_JOINABLE);
+    armv7m_rtos_task_create(task, "MAIN", K_PRIORITY_MIN, stack_limit, (stack_base - stack_limit), K_TASK_JOINABLE);
     
     armv7m_rtos_control.system_state = K_STATE_READY;
 }
@@ -599,7 +611,7 @@ static uint32_t armv7m_rtos_task_state(k_task_t *task)
             ? K_STATE_TERMINATED
             : ((task->state & K_TASK_STATE_SUSPENDED)
                ? K_STATE_SUSPENDED
-               : ((task->state & (K_TASK_STATE_TIMEOUT | K_TASK_STATE_WAIT_MASK))
+               : ((task->state & K_TASK_STATE_WAIT_MASK)
                   ? K_STATE_BLOCKED
                   : ((task->state & K_TASK_STATE_READY)
                      ? ((task != armv7m_rtos_control.task_self) ? K_STATE_READY : K_STATE_RUNNING)
@@ -624,7 +636,7 @@ static void armv7m_rtos_task_start(k_task_t *task, k_task_routine_t routine, voi
 {
     armv7m_context_t *stack;
     
-    stack = (armv7m_context_t*)((uint32_t)task->stack_top - sizeof(armv7m_context_t));
+    stack = (armv7m_context_t*)((uint32_t)task->stack_base - sizeof(armv7m_context_t));
     stack->r0 = (uint32_t)context;
 #if (ARMV7M_RTOS_DEBUG_SUPPORTED == 1)
     stack->r1 = 0x00000000;
@@ -645,7 +657,6 @@ static void armv7m_rtos_task_start(k_task_t *task, k_task_routine_t routine, voi
     
     task->exc_return = ((task == armv7m_rtos_control.task_default) ? 0xfffffff9 : 0xfffffffd);
     task->stack_top = (void*)stack;
-    task->stack_end = (void*)stack;
 
     if (!(task->state & K_TASK_STATE_SUSPENDED))
     {
@@ -786,10 +797,9 @@ static void armv7m_rtos_task_create(k_task_t *task, const char *name, uint32_t p
     task->state = 0;
     task->events = 0;
     task->name = name;
-    task->link = armv7m_rtos_control.task_link;
+    task->list = armv7m_rtos_control.task_list;
     task->exc_return = 0;
     task->stack_top = stack_base + stack_size;
-    task->stack_end = stack_base + stack_size;
     task->stack_base = stack_base + stack_size;
     task->stack_limit = stack_base;
     task->join = NULL;
@@ -801,7 +811,8 @@ static void armv7m_rtos_task_create(k_task_t *task, const char *name, uint32_t p
     task->timeout.clock_l = 0;
     task->timeout.clock_h = 0;
     
-    armv7m_rtos_control.task_link = task;
+    armv7m_rtos_control.task_list = task;
+    armv7m_rtos_control.task_default->list = task;
 
     if (options & K_TASK_JOINABLE)
     {
@@ -819,7 +830,7 @@ static void armv7m_rtos_task_create(k_task_t *task, const char *name, uint32_t p
     }
     else
     {
-        stack_e = (uint32_t*)task->stack_end;
+        stack_e = (uint32_t*)task->stack_base;
     }
     
     for (stack = (uint32_t*)task->stack_limit; stack < stack_e; stack += 2)
@@ -842,20 +853,34 @@ static void armv7m_rtos_task_create(k_task_t *task, const char *name, uint32_t p
 
 static void armv7m_rtos_task_destroy(k_task_t *task)
 {
-    k_task_t **p_task_previous, *task_link;
-    
-    for (p_task_previous = &armv7m_rtos_control.task_link, task_link = armv7m_rtos_control.task_link; task_link != K_TASK_SENTINEL; p_task_previous = &task_link->link, task_link = task_link->link)
+    k_task_t **p_task_previous, *task_list;
+
+    p_task_previous = &armv7m_rtos_control.task_default->list;
+
+    task_list = armv7m_rtos_control.task_list;
+
+    do
     {
-        if (task_link == task)
+        if (task_list == task)
         {
-            *p_task_previous = task->link;
+            *p_task_previous = task->list;
 
             break;
         }
+
+        p_task_previous = &task_list->list;
+
+        task_list = task_list->list;
+    }
+    while (task_list !=  armv7m_rtos_control.task_list);
+
+    if (armv7m_rtos_control.task_list == task)
+    {
+        armv7m_rtos_control.task_list = task->list;
     }
 
     task->state = 0;
-    task->link = NULL;
+    task->list = NULL;
 
 #if (ARMV7M_RTOS_HOOK_SUPPORTED == 1)
     (*armv7m_rtos_control.hook_table->task_destroy)(task);
@@ -917,9 +942,9 @@ static void armv7m_rtos_task_resume_process(k_task_t *task)
             
         task->resume = NULL;
 
-        if (task->link && !(task->state & K_TASK_STATE_TERMINATED))
+        if (!(task->state & K_TASK_STATE_TERMINATED))
         {
-            if (!(task->state & (K_TASK_STATE_TIMEOUT | K_TASK_STATE_WAIT_MASK)))
+            if (!(task->state & K_TASK_STATE_WAIT_MASK))
             {
                 armv7m_rtos_task_ready_insert(task);
                 
@@ -1015,14 +1040,14 @@ static void armv7m_rtos_task_release_process(k_task_t *task)
 
         if (task->state & K_TASK_STATE_WAIT_MASK)
         {
-            (*armv7m_rtos_control.wait_table[(task->state & K_TASK_STATE_WAIT_MASK) - K_TASK_STATE_WAIT_JOIN]->release)(task);
+            (*armv7m_rtos_control.wait_table[(task->state & K_TASK_STATE_WAIT_MASK) - K_TASK_STATE_WAIT_DELAY]->release)(task);
         }
         
         task->state &= ~(K_TASK_STATE_EVENT_ALL | K_TASK_STATE_EVENT_CLEAR | K_TASK_STATE_WAIT_MASK);
 
         task->release = NULL;
         
-        if (task->link && !(task->state & K_TASK_STATE_TERMINATED))
+        if (!(task->state & K_TASK_STATE_TERMINATED))
         {
             if (!(task->state & K_TASK_STATE_SUSPENDED))
             {
@@ -1124,14 +1149,14 @@ static bool armv7m_rtos_task_unblock(k_task_t *task, uint32_t status)
 
     if (task->state & K_TASK_STATE_WAIT_MASK)
     {
-        (*armv7m_rtos_control.wait_table[(task->state & K_TASK_STATE_WAIT_MASK) - K_TASK_STATE_WAIT_JOIN]->unblock)(task);
+        (*armv7m_rtos_control.wait_table[(task->state & K_TASK_STATE_WAIT_MASK) - K_TASK_STATE_WAIT_DELAY]->unblock)(task);
     }
 
     task->state &= ~(K_TASK_STATE_EVENT_ALL | K_TASK_STATE_EVENT_CLEAR | K_TASK_STATE_WAIT_MASK);
 
     task->release = NULL;
 
-    if (task->link && !(task->state & K_TASK_STATE_TERMINATED))
+    if (!(task->state & K_TASK_STATE_TERMINATED))
     {
         if (!(task->state & K_TASK_STATE_SUSPENDED))
         {
@@ -1347,6 +1372,14 @@ static void armv7m_rtos_timeout_schedule(void)
             stm32wb_rtc_alarm_stop(&armv7m_rtos_control.task_timer);
         }
     }
+}
+
+static void armv7m_rtos_delay_release(k_task_t *task)
+{
+}
+    
+static void armv7m_rtos_delay_unblock(k_task_t *task)
+{
 }
 
 static void armv7m_rtos_join_release(k_task_t *task)
@@ -2385,7 +2418,7 @@ static int __attribute__((noinline)) __svc_armv7m_rtos_task_terminate(k_task_t *
         return K_ERR_ILLEGAL_USE;
     }
 
-    if (!task || !task->link || (task->state & K_TASK_STATE_TERMINATED))
+    if (!task || (task->state & K_TASK_STATE_TERMINATED))
     {
         return K_ERR_INVALID_OBJECT;
     }
@@ -2438,7 +2471,7 @@ static int __attribute__((noinline)) __svc_armv7m_rtos_task_detach(k_task_t *tas
 {
     // armv7m_rtt_printf("k_task_detach(task=%08x)\n", task);
 
-    if (!task || !task->link)
+    if (!task)
     {
         return K_ERR_INVALID_OBJECT;
     }
@@ -2489,7 +2522,7 @@ static int __attribute__((noinline)) __svc_armv7m_rtos_task_join(k_task_t *task)
         return K_ERR_ILLEGAL_USE;
     }
     
-    if (!task || !task->link)
+    if (!task)
     {
         return K_ERR_INVALID_OBJECT;
     }
@@ -2504,7 +2537,7 @@ static int __attribute__((noinline)) __svc_armv7m_rtos_task_join(k_task_t *task)
         return K_ERR_TASK_ALREADY_JOINED;
     }
 
-    armv7m_rtos_control.wait_table[K_TASK_STATE_WAIT_JOIN - K_TASK_STATE_WAIT_JOIN] = &armv7m_rtos_join_wait_entry;
+    armv7m_rtos_control.wait_table[K_TASK_STATE_WAIT_JOIN - K_TASK_STATE_WAIT_DELAY] = &armv7m_rtos_join_wait_entry;
 
     if (task->state & K_TASK_STATE_TERMINATED)
     {
@@ -2539,7 +2572,11 @@ static int __attribute__((noinline)) __svc_armv7m_rtos_task_enumerate(uint32_t *
 
     // armv7m_rtt_printf("k_task_enumerate(p_count_return=%08x, p_task_return=%08x, count=%d)\n", p_count_return, p_task_return, count);
 
-    for (task = armv7m_rtos_control.task_link, index = 0; task != K_TASK_SENTINEL; task = task->link, index++)
+    index = 0;
+
+    task = armv7m_rtos_control.task_list;
+
+    do
     {
         if (p_task_return)
         {
@@ -2548,7 +2585,12 @@ static int __attribute__((noinline)) __svc_armv7m_rtos_task_enumerate(uint32_t *
                 p_task_return[index] = task;
             }
         }
+
+        index++;
+
+        task = task->list;
     }
+    while (task != armv7m_rtos_control.task_list);
     
     if (p_count_return)
     {
@@ -2562,7 +2604,7 @@ static int __attribute__((noinline)) __svc_armv7m_rtos_task_info(k_task_t *task,
 {
     // armv7m_rtt_printf("k_task_info(task=%08x, p_task_info_return=%08x)\n", task, p_task_info_return);
 
-    if (!task || !task->link)
+    if (!task || !task->list)
     {
         return K_ERR_INVALID_OBJECT;
     }
@@ -2582,11 +2624,11 @@ static int __attribute__((noinline)) __svc_armv7m_rtos_task_info(k_task_t *task,
 
 static int __attribute__((noinline)) __svc_armv7m_rtos_task_stack(k_task_t *task, uint32_t *p_stack_base_return, uint32_t *p_stack_size_return, uint32_t *p_stack_space_return)
 {
-    uint32_t *stack_end;
+    uint32_t *stack;
     
     // armv7m_rtt_printf("k_task_stack(task=%08x, p_stack_base_return=%08x, p_stack_size_return=%08x, p_stack_space_return=%08x)\n", task, p_stack_base_return, p_stack_size_return, p_stack_space_return);
 
-    if (!task || !task->link || (task->state & K_TASK_STATE_TERMINATED))
+    if (!task || (task->state & K_TASK_STATE_TERMINATED))
     {
         return K_ERR_INVALID_OBJECT;
     }
@@ -2603,22 +2645,15 @@ static int __attribute__((noinline)) __svc_armv7m_rtos_task_stack(k_task_t *task
 
     if (p_stack_space_return)
     {
-        if (task->stack_end > task->stack_top)
+        for (stack = (uint32_t*)task->stack_limit; stack < (uint32_t*)task->stack_base; stack += 2)
         {
-            task->stack_end = task->stack_top;
-        }
-            
-        for (stack_end = (uint32_t*)task->stack_limit; stack_end < (uint32_t*)task->stack_end; stack_end += 2)
-        {
-            if ((stack_end[0] != 0xaaaaaaaa) || (stack_end[1] != 0x77777777))
+            if ((stack[0] != 0xaaaaaaaa) || (stack[1] != 0x77777777))
             {
                 break;
             }
         }
 
-        task->stack_end = stack_end;
-
-        *p_stack_space_return = (uint32_t)task->stack_end - (uint32_t)task->stack_limit;
+        *p_stack_space_return = (uint32_t)stack - (uint32_t)task->stack_limit;
     }
     
     return K_NO_ERROR;
@@ -2628,7 +2663,7 @@ static int __attribute__((noinline)) __svc_armv7m_rtos_task_unblock(k_task_t *ta
 {
     // armv7m_rtt_printf("k_task_unblock(task=%08x)\n", task);
 
-    if (!task || !task->link || (task->state & K_TASK_STATE_TERMINATED))
+    if (!task || (task->state & K_TASK_STATE_TERMINATED))
     {
         return K_ERR_INVALID_OBJECT;
     }
@@ -2659,7 +2694,7 @@ static int __attribute__((noinline)) __svc_armv7m_rtos_task_suspend(k_task_t *ta
         }
     }
 
-    if (!task || !task->link || (task->state & K_TASK_STATE_TERMINATED))
+    if (!task || (task->state & K_TASK_STATE_TERMINATED))
     {
         return K_ERR_INVALID_OBJECT;
     }
@@ -2689,7 +2724,7 @@ static int __attribute__((noinline)) __svc_armv7m_rtos_task_resume(k_task_t *tas
 {
     // armv7m_rtt_printf("k_task_resume(task=%08x)\n", task);
 
-    if (!task || !task->link || (task->state & K_TASK_STATE_TERMINATED))
+    if (!task || (task->state & K_TASK_STATE_TERMINATED))
     {
         return K_ERR_INVALID_OBJECT;
     }
@@ -2713,7 +2748,7 @@ static int __attribute__((noinline)) __svc_armv7m_rtos_task_set_priority(k_task_
 
     // armv7m_rtt_printf("k_task_set_priority(task=%08x, priority=%d, p_priority_return=%08x)\n", task, priority, p_priority_return);
 
-    if (!task || !task->link || (task->state & K_TASK_STATE_TERMINATED))
+    if (!task || (task->state & K_TASK_STATE_TERMINATED))
     {
         return K_ERR_INVALID_OBJECT;
     }
@@ -2749,7 +2784,7 @@ static int __attribute__((noinline)) __svc_armv7m_rtos_task_get_priority(k_task_
 {
     // armv7m_rtt_printf("k_task_get_priority(task=%08x, p_priority_return=%08x)\n", task, p_priority_return);
 
-    if (!task || !task->link || (task->state & K_TASK_STATE_TERMINATED))
+    if (!task || (task->state & K_TASK_STATE_TERMINATED))
     {
         return K_ERR_INVALID_OBJECT;
     }
@@ -2783,10 +2818,14 @@ static int __attribute__((noinline)) __svc_armv7m_rtos_task_delay(uint32_t delay
         return K_ERR_INVALID_PARAMETER;
     }
 
+    armv7m_rtos_control.wait_table[K_TASK_STATE_WAIT_DELAY - K_TASK_STATE_WAIT_DELAY] = &armv7m_rtos_delay_wait_entry;
+    
     self = armv7m_rtos_control.task_self;
     
     armv7m_rtos_task_ready_remove(self);
-        
+
+    self->state |= K_TASK_STATE_WAIT_DELAY;
+    
     armv7m_rtos_timeout_relative(self, delay);
     
 #if (ARMV7M_RTOS_HOOK_SUPPORTED == 1)
@@ -2819,12 +2858,16 @@ static int __attribute__((noinline)) __svc_armv7m_rtos_task_delay_until(uint32_t
     {
         return K_ERR_INVALID_PARAMETER;
     }
+
+    armv7m_rtos_control.wait_table[K_TASK_STATE_WAIT_DELAY - K_TASK_STATE_WAIT_DELAY] = &armv7m_rtos_delay_wait_entry;
     
     clock = (((uint64_t)clock_l << 0) | ((uint64_t)clock_h << 32));
 
     self = armv7m_rtos_control.task_self;
 
     armv7m_rtos_task_ready_remove(self);
+
+    self->state |= K_TASK_STATE_WAIT_DELAY;
 
     armv7m_rtos_timeout_absolute(self, clock);
 
@@ -2870,7 +2913,7 @@ static int __attribute__((noinline)) __svc_armv7m_rtos_event_send(k_task_t *task
 
     // armv7m_rtt_printf("k_event_send(task=%08x, events=%08x)\n", task, events);
 
-    if (!task || !task->link || (task->state & K_TASK_STATE_TERMINATED))
+    if (!task || (task->state & K_TASK_STATE_TERMINATED))
     {
         return K_ERR_INVALID_OBJECT;
     }
@@ -2925,7 +2968,7 @@ static int __attribute__((noinline)) __svc_armv7m_rtos_event_receive(uint32_t ev
         }
     }
 
-    armv7m_rtos_control.wait_table[K_TASK_STATE_WAIT_EVENT - K_TASK_STATE_WAIT_JOIN] = &armv7m_rtos_event_wait_entry;
+    armv7m_rtos_control.wait_table[K_TASK_STATE_WAIT_EVENT - K_TASK_STATE_WAIT_DELAY] = &armv7m_rtos_event_wait_entry;
     
     events_return = self->events & events;
 
@@ -3096,7 +3139,7 @@ static int __attribute__((noinline)) __svc_armv7m_rtos_sem_acquire(k_sem_t *sem,
         }
     }
 
-    armv7m_rtos_control.wait_table[K_TASK_STATE_WAIT_SEM - K_TASK_STATE_WAIT_JOIN] = &armv7m_rtos_sem_wait_entry;
+    armv7m_rtos_control.wait_table[K_TASK_STATE_WAIT_SEM - K_TASK_STATE_WAIT_DELAY] = &armv7m_rtos_sem_wait_entry;
     
     count = armv7m_atomic_dech(&sem->count);
 
@@ -3346,7 +3389,7 @@ static int __attribute__((noinline, optimize("O3"))) __svc_armv7m_rtos_mutex_loc
         }
     }
 
-    armv7m_rtos_control.wait_table[K_TASK_STATE_WAIT_MUTEX - K_TASK_STATE_WAIT_JOIN] = &armv7m_rtos_mutex_wait_entry;
+    armv7m_rtos_control.wait_table[K_TASK_STATE_WAIT_MUTEX - K_TASK_STATE_WAIT_DELAY] = &armv7m_rtos_mutex_wait_entry;
 
     if (!mutex->owner)
     {
@@ -3811,7 +3854,7 @@ int k_task_join(k_task_t *task)
 
 bool k_task_is_joinable(k_task_t *task)
 {
-    return (task && task->link && (task->state & K_TASK_STATE_JOINABLE));
+    return (task && (task->state & K_TASK_STATE_JOINABLE));
 }
 
 k_task_t * __attribute__((optimize("O3"))) k_task_self(void)
@@ -3906,7 +3949,7 @@ int k_task_resume(k_task_t *task)
 
 bool k_task_is_suspended(k_task_t *task)
 {
-    return (task && task->link && (task->state & K_TASK_STATE_SUSPENDED) && !task->resume);
+    return (task && (task->state & K_TASK_STATE_SUSPENDED) && !task->resume);
 }
 
 int k_task_set_priority(k_task_t *task, uint32_t priority, uint32_t *p_priority_return)

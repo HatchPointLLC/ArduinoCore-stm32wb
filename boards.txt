@@ -1,6 +1,8 @@
 menu.usb=USB Type
 menu.storage=Extenal Storage
 menu.speed=CPU Speed
+menu.security=Security Settings
+
 
 ##############################################################
 
@@ -22,7 +24,7 @@ Firefly-WB55CG.build.vid=0x1209
 Firefly-WB55CG.build.pid=0x6671
 Firefly-WB55CG.build.did=0x0100
 Firefly-WB55CG.build.usb_manufacturer="Tlera Corporation"
-Firefly-WB55CG.build.usb_product="Firefly"
+Firefly-WB55CG.build.usb_product="Firefly-WB55CG"
 Firefly-WB55CG.build.extra_flags=-DSTM32WB55xx -fsingle-precision-constant "-D__SYSTEM_CORE_CLOCK__={build.f_cpu}" {build.usb_flags} {build.storage_flags} 
 Firefly-WB55CG.build.ldscript=STM32WB55xx_FLASH.ld 
 Firefly-WB55CG.build.openocdscript=openocd_scripts/firefly-wb55cg.cfg
@@ -31,6 +33,7 @@ Firefly-WB55CG.build.variant_system_libs="-L{runtime.platform.path}/system/STM32
 Firefly-WB55CG.build.variant_system_include="-I{runtime.platform.path}/system/CMSIS/Core/Include" "-I{runtime.platform.path}/system/CMSIS/DSP/Include" "-I{runtime.platform.path}/system/CMSIS/Device/ST/STM32WBxx/Include" "-I{runtime.platform.path}/system/STM32WBxx/Include" 
 
 Firefly-WB55CG.upload.tool=dfu-util
+Firefly-WB55CG.upload.tool.default=dfu-util
 Firefly-WB55CG.upload.protocol=dfu
 Firefly-WB55CG.upload.address=0x08000000
 Firefly-WB55CG.upload.interface=0
@@ -65,6 +68,13 @@ Firefly-WB55CG.menu.speed.16.build.f_cpu=16000000L
 Firefly-WB55CG.menu.speed.2=2 MHz (No USB)
 Firefly-WB55CG.menu.speed.2.build.f_cpu=2000000L
 
+Firefly-WB55CG.menu.security.none=None
+Firefly-WB55CG.menu.security.sien=Signature + Encryption
+Firefly-WB55CG.menu.security.sien.build.security_flags=-e "{build.keys.keychain}/{build.keys.encrypt_key}" -s "{build.keys.keychain}/{build.keys.sign_key}"
+Firefly-WB55CG.menu.security.sien.build.keys.keychain={runtime.platform.path}/libraries/STM32WB/keys
+Firefly-WB55CG.menu.security.sien.build.keys.sign_key=rsa2048_key.pem
+Firefly-WB55CG.menu.security.sien.build.keys.encrypt_key=aes128_key.bin
+
 # ---------------------------------------
 # Tlera Katydid
 # ---------------------------------------
@@ -84,7 +94,7 @@ Katydid-WB55CG.build.vid=0x1209
 Katydid-WB55CG.build.pid=0x6672
 Katydid-WB55CG.build.did=0x0100
 Katydid-WB55CG.build.usb_manufacturer="Tlera Corporation"
-Katydid-WB55CG.build.usb_product="Katydid"
+Katydid-WB55CG.build.usb_product="Katydid-WB55CG"
 Katydid-WB55CG.build.extra_flags=-DSTM32WB55xx -fsingle-precision-constant "-D__SYSTEM_CORE_CLOCK__={build.f_cpu}" {build.usb_flags}
 Katydid-WB55CG.build.ldscript=STM32WB55xx_FLASH.ld 
 Katydid-WB55CG.build.openocdscript=openocd_scripts/katydid-wb55cg.cfg
@@ -93,6 +103,7 @@ Katydid-WB55CG.build.variant_system_libs="-L{runtime.platform.path}/system/STM32
 Katydid-WB55CG.build.variant_system_include="-I{runtime.platform.path}/system/CMSIS/Core/Include" "-I{runtime.platform.path}/system/CMSIS/DSP/Include" "-I{runtime.platform.path}/system/CMSIS/Device/ST/STM32WBxx/Include" "-I{runtime.platform.path}/system/STM32WBxx/Include" 
 
 Katydid-WB55CG.upload.tool=dfu-util
+Katydid-WB55CG.upload.tool.default=dfu-util
 Katydid-WB55CG.upload.protocol=dfu
 Katydid-WB55CG.upload.address=0x08000000
 Katydid-WB55CG.upload.interface=0
@@ -120,6 +131,13 @@ Katydid-WB55CG.menu.speed.16.build.f_cpu=16000000L
 Katydid-WB55CG.menu.speed.2=2 MHz (No USB)
 Katydid-WB55CG.menu.speed.2.build.f_cpu=2000000L
 
+Katydid-WB55CG.menu.security.none=None
+Katydid-WB55CG.menu.security.sien=Signature + Encryption
+Katydid-WB55CG.menu.security.sien.build.security_flags=-e "{build.keys.keychain}/{build.keys.encrypt_key}" -s "{build.keys.keychain}/{build.keys.sign_key}"
+Katydid-WB55CG.menu.security.sien.build.keys.keychain={runtime.platform.path}/libraries/STM32WB/keys
+Katydid-WB55CG.menu.security.sien.build.keys.sign_key=rsa2048_key.pem
+Katydid-WB55CG.menu.security.sien.build.keys.encrypt_key=aes128_key.bin
+
 
 # ---------------------------------------
 # Tlera Mothra
@@ -140,7 +158,7 @@ Mothra-WB5MMG.build.vid=0x1209
 Mothra-WB5MMG.build.pid=0x6673
 Mothra-WB5MMG.build.did=0x0100
 Mothra-WB5MMG.build.usb_manufacturer="Tlera Corporation"
-Mothra-WB5MMG.build.usb_product="Mothra"
+Mothra-WB5MMG.build.usb_product="Mothra-WB5MMG"
 Mothra-WB5MMG.build.extra_flags=-DSTM32WB55xx -fsingle-precision-constant "-D__SYSTEM_CORE_CLOCK__={build.f_cpu}" {build.usb_flags}
 Mothra-WB5MMG.build.ldscript=STM32WB55xx_FLASH.ld 
 Mothra-WB5MMG.build.openocdscript=openocd_scripts/mothra-wb5mmg.cfg
@@ -149,6 +167,7 @@ Mothra-WB5MMG.build.variant_system_libs="-L{runtime.platform.path}/system/STM32W
 Mothra-WB5MMG.build.variant_system_include="-I{runtime.platform.path}/system/CMSIS/Core/Include" "-I{runtime.platform.path}/system/CMSIS/DSP/Include" "-I{runtime.platform.path}/system/CMSIS/Device/ST/STM32WBxx/Include" "-I{runtime.platform.path}/system/STM32WBxx/Include" 
 
 Mothra-WB5MMG.upload.tool=dfu-util
+Mothra-WB5MMG.upload.tool.default=dfu-util
 Mothra-WB5MMG.upload.protocol=dfu
 Mothra-WB5MMG.upload.address=0x08000000
 Mothra-WB5MMG.upload.interface=0
@@ -176,13 +195,19 @@ Mothra-WB5MMG.menu.speed.16.build.f_cpu=16000000L
 Mothra-WB5MMG.menu.speed.2=2 MHz (No USB)
 Mothra-WB5MMG.menu.speed.2.build.f_cpu=2000000L
 
+Mothra-WB5MMG.menu.security.none=None
+Mothra-WB5MMG.menu.security.sien=Signature + Encryption
+Mothra-WB5MMG.menu.security.sien.build.security_flags=-e "{build.keys.keychain}/{build.keys.encrypt_key}" -s "{build.keys.keychain}/{build.keys.sign_key}"
+Mothra-WB5MMG.menu.security.sien.build.keys.keychain={runtime.platform.path}/libraries/STM32WB/keys
+Mothra-WB5MMG.menu.security.sien.build.keys.sign_key=rsa2048_key.pem
+Mothra-WB5MMG.menu.security.sien.build.keys.encrypt_key=aes128_key.bin
 
 # ---------------------------------------
 # Tlera Snoopy6
 # ---------------------------------------
 Snoopy6-WB5MMG.name=Snoopy6-WB5MMG
 Snoopy6-WB5MMG.vid.0=0x1209
-Snoopy6-WB5MMG.pid.0=0x6673
+Snoopy6-WB5MMG.pid.0=0x6674
 
 Snoopy6-WB5MMG.build.f_cpu=64000000L
 Snoopy6-WB5MMG.build.board=STM32WB_SNOOPY6
@@ -193,10 +218,10 @@ Snoopy6-WB5MMG.build.architecture=armv7e-m
 Snoopy6-WB5MMG.build.fpu=fpv4-sp-d16
 Snoopy6-WB5MMG.build.float-abi=hard
 Snoopy6-WB5MMG.build.vid=0x1209
-Snoopy6-WB5MMG.build.pid=0x6673
+Snoopy6-WB5MMG.build.pid=0x6674
 Snoopy6-WB5MMG.build.did=0x0100
 Snoopy6-WB5MMG.build.usb_manufacturer="Tlera Corporation"
-Snoopy6-WB5MMG.build.usb_product="Snoopy6"
+Snoopy6-WB5MMG.build.usb_product="Snoopy6-WB5MMG"
 Snoopy6-WB5MMG.build.extra_flags=-DSTM32WB55xx -fsingle-precision-constant "-D__SYSTEM_CORE_CLOCK__={build.f_cpu}" {build.usb_flags}
 Snoopy6-WB5MMG.build.ldscript=STM32WB55xx_FLASH.ld 
 Snoopy6-WB5MMG.build.openocdscript=openocd_scripts/snoopy6-wb5mmg.cfg
@@ -205,11 +230,12 @@ Snoopy6-WB5MMG.build.variant_system_libs="-L{runtime.platform.path}/system/STM32
 Snoopy6-WB5MMG.build.variant_system_include="-I{runtime.platform.path}/system/CMSIS/Core/Include" "-I{runtime.platform.path}/system/CMSIS/DSP/Include" "-I{runtime.platform.path}/system/CMSIS/Device/ST/STM32WBxx/Include" "-I{runtime.platform.path}/system/STM32WBxx/Include" 
 
 Snoopy6-WB5MMG.upload.tool=dfu-util
+Snoopy6-WB5MMG.upload.tool.default=dfu-util
 Snoopy6-WB5MMG.upload.protocol=dfu
 Snoopy6-WB5MMG.upload.address=0x08000000
 Snoopy6-WB5MMG.upload.interface=0
 Snoopy6-WB5MMG.upload.vid=0x1209
-Snoopy6-WB5MMG.upload.pid=0x6673
+Snoopy6-WB5MMG.upload.pid=0x6674
 Snoopy6-WB5MMG.upload.use_1200bps_touch=false
 Snoopy6-WB5MMG.upload.wait_for_upload_port=false
 Snoopy6-WB5MMG.upload.native_usb=true
@@ -231,6 +257,13 @@ Snoopy6-WB5MMG.menu.speed.16=16 MHz (No USB)
 Snoopy6-WB5MMG.menu.speed.16.build.f_cpu=16000000L
 Snoopy6-WB5MMG.menu.speed.2=2 MHz (No USB)
 Snoopy6-WB5MMG.menu.speed.2.build.f_cpu=2000000L
+
+Snoopy6-WB5MMG.menu.security.none=None
+Snoopy6-WB5MMG.menu.security.sien=Signature + Encryption
+Snoopy6-WB5MMG.menu.security.sien.build.security_flags=-e "{build.keys.keychain}/{build.keys.encrypt_key}" -s "{build.keys.keychain}/{build.keys.sign_key}"
+Snoopy6-WB5MMG.menu.security.sien.build.keys.keychain={runtime.platform.path}/libraries/STM32WB/keys
+Snoopy6-WB5MMG.menu.security.sien.build.keys.sign_key=rsa2048_key.pem
+Snoopy6-WB5MMG.menu.security.sien.build.keys.encrypt_key=aes128_key.bin
 
 # ---------------------------------------
 # PG DSOCentral
@@ -287,6 +320,13 @@ DSOCentral-WB5MMG.menu.speed.16.build.f_cpu=16000000L
 DSOCentral-WB5MMG.menu.speed.2=2 MHz (No USB)
 DSOCentral-WB5MMG.menu.speed.2.build.f_cpu=2000000L
 
+DSOCentral-WB5MMG.menu.security.none=None
+DSOCentral-WB5MMG.menu.security.sien=Signature + Encryption
+DSOCentral-WB5MMG.menu.security.sien.build.security_flags=-e "{build.keys.keychain}/{build.keys.encrypt_key}" -s "{build.keys.keychain}/{build.keys.sign_key}"
+DSOCentral-WB5MMG.menu.security.sien.build.keys.keychain={runtime.platform.path}/libraries/STM32WB/keys
+DSOCentral-WB5MMG.menu.security.sien.build.keys.sign_key=rsa2048_key.pem
+DSOCentral-WB5MMG.menu.security.sien.build.keys.encrypt_key=aes128_key.bin
+
 # ST Nucleo
 # ---------------------------------------
 NUCLEO-WB55RG.name=NUCLEO-WB55RG
@@ -309,6 +349,7 @@ NUCLEO-WB55RG.build.variant_system_libs="-L{runtime.platform.path}/system/STM32W
 NUCLEO-WB55RG.build.variant_system_include="-I{runtime.platform.path}/system/CMSIS/Core/Include" "-I{runtime.platform.path}/system/CMSIS/DSP/Include" "-I{runtime.platform.path}/system/CMSIS/Device/ST/STM32WBxx/Include" "-I{runtime.platform.path}/system/STM32WBxx/Include" 
 
 NUCLEO-WB55RG.upload.tool=openocd
+NUCLEO-WB55RG.upload.tool.default=openocd
 NUCLEO-WB55RG.upload.protocol=stlink
 NUCLEO-WB55RG.upload.use_1200bps_touch=false
 NUCLEO-WB55RG.upload.wait_for_upload_port=false

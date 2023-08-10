@@ -38,7 +38,8 @@
 #define USB_DID 0x0100
 #define USB_MANUFACTURER "Tlera Corporation"
 #define USB_PRODUCT "Firefly"
-#define USB_TYPE 1
+//#define USB_TYPE 1
+#define USB_TYPE 2
 #endif
 
 #if (USB_TYPE != 0)
@@ -61,7 +62,6 @@ static const stm32wb_usbd_device_t g_USBDevice =
 
 static const stm32wb_usbd_params_t g_USBParams =
 {
-    STM32WB_USB_IRQ_PRIORITY,
     STM32WB_CONFIG_PIN_VBUS,
 };
 
@@ -78,15 +78,22 @@ USBDeviceClass::USBDeviceClass() {
 
     m_work = K_WORK_INIT(&USBDeviceClass::notifyRoutine, (void*)this);
 
+    if (stm32wb_system_reset_cause() == STM32WB_SYSTEM_RESET_DFU)
+    {
+        stm32wb_usbd_configure(&g_USBDevice, &stm32wb_usbd_dfu_info, &g_USBParams);
+    }
+    else
+    {
 #if (USB_TYPE == 2)
 #if (STM32WB_CONFIG_SFLASH == 1) || (STORAGE_TYPE == 1)
-    dosfs_sflash_initialize();
+        dosfs_sflash_initialize();
 #endif  
 #endif
 
 #if (USB_TYPE != 0)
-    stm32wb_usbd_configure(&g_USBDevice, &USB_INFO, &g_USBParams);
+        stm32wb_usbd_configure(&g_USBDevice, &USB_INFO, &g_USBParams);
 #endif
+    }
 }
 
 bool USBDeviceClass::begin() {

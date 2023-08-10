@@ -114,11 +114,10 @@ struct _k_task_t {
     volatile uint32_t            events;
   
     const char                   *name;
-    k_task_t                     *link;
+    k_task_t                     *list;
 
     uint32_t                     exc_return;
     void                         *stack_top;
-    void                         *stack_end;
     void                         *stack_base;
     void                         *stack_limit;
 
@@ -243,10 +242,11 @@ struct _k_alarm_t {
 #define K_STATE_UNKNOWN              6
 
 #define K_WAIT_NONE                  0
-#define K_WAIT_JOIN                  1
-#define K_WAIT_EVENT                 2
-#define K_WAIT_SEM                   3
-#define K_WAIT_MUTEX                 4
+#define K_WAIT_DELAY                 1
+#define K_WAIT_JOIN                  2
+#define K_WAIT_EVENT                 3
+#define K_WAIT_SEM                   4
+#define K_WAIT_MUTEX                 5
   
 #define K_EVENT_ANY                  0x00000000
 #define K_EVENT_ALL                  0x00000001

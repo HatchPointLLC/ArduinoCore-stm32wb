@@ -41,6 +41,13 @@ typedef enum _eAnalogReference
  */
 extern void analogReference( eAnalogReference ulMode ) ;
 
+  /*
+   * \brief Set the sampling period of analogRead in microseconds. Default is 2 microsceonds (range from 0 to 20).
+   *
+   * \param period
+   */
+extern void analogReadPeriod( float period );
+
 /*
  * \brief Writes an analog value (PWM wave) to a pin.
  *
@@ -65,13 +72,6 @@ extern uint32_t analogRead( uint32_t ulPin ) ;
  * \param res
  */
 extern void analogReadResolution(int resolution);
-
-/*
- * \brief Set the sampling period of analogRead in microseconds. Default is 2 microsceonds (range from 0 to 50).
- *
- * \param res
- */
-extern void analogReadPeriod(int period);
 
 /*
  * \brief Set the resolution of analogWrite parameters. Default is 8 bits (range from 1 to 12).

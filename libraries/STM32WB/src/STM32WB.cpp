@@ -30,11 +30,6 @@
 #include "STM32WB.h"
 #include "wiring_private.h"
 
-uint64_t STM32WBClass::getSerial()
-{
-    return stm32wb_system_serial();
-}
-
 void STM32WBClass::getUID(uint32_t uid[3])
 {
     stm32wb_system_uid(uid);
@@ -44,15 +39,15 @@ float STM32WBClass::readBattery()
 {
 #if defined(STM32WB_CONFIG_VBAT_SENSE_CHANNEL)
     int32_t vrefint_data, vbat_data;
-    float vdda, battery;
+    float vref, battery;
 
     if (!k_task_is_in_progress()) {
         return 0;
     }
 
-    vrefint_data = __analogReadChannel(STM32WB_ADC_CHANNEL_VREFINT, STM32WB_ADC_VREFINT_PERIOD);
+    vrefint_data = stm32wb_adc_convert(STM32WB_ADC_CHANNEL_VREFINT, STM32WB_ADC_VREFINT_PERIOD);
 
-    vdda = (STM32WB_ADC_VREFINT_VREF * STM32WB_ADC_VREFINT_CAL) / vrefint_data;
+    vref = (STM32WB_ADC_VREFINT_VREF * STM32WB_ADC_VREFINT_CAL) / vrefint_data;
     
 #if defined(STM32WB_CONFIG_PIN_VBAT_SWITCH)
 #if defined(STM32WB_CONFIG_PIN_BUTTON) && (STM32WB_CONFIG_PIN_BUTTON == STM32WB_CONFIG_PIN_VBAT_SWITCH)
@@ -68,9 +63,9 @@ float STM32WBClass::readBattery()
     armv7m_core_udelay(STM32WB_CONFIG_VBAT_SENSE_DELAY);
 #endif /* defined(STM32WB_CONFIG_VBAT_SENSE_DELAY) */
 
-    vbat_data = __analogReadChannel(STM32WB_CONFIG_VBAT_SENSE_CHANNEL, STM32WB_CONFIG_VBAT_SENSE_PERIOD);
+    vbat_data = stm32wb_adc_convert(STM32WB_CONFIG_VBAT_SENSE_CHANNEL, STM32WB_CONFIG_VBAT_SENSE_PERIOD);
 
-    battery = (vdda * (STM32WB_CONFIG_VBAT_SENSE_SCALE / 4095.0)) * (float)vbat_data;
+    battery = ((vref * STM32WB_CONFIG_VBAT_SENSE_SCALE) * (float)vbat_data) / 4095.0;
 
 #if defined(STM32WB_CONFIG_PIN_VBAT_SWITCH)
 #if defined(STM32WB_CONFIG_PIN_BUTTON) && (STM32WB_CONFIG_PIN_BUTTON == STM32WB_CONFIG_PIN_VBAT_SWITCH)
@@ -100,40 +95,40 @@ float STM32WBClass::readBattery()
 float STM32WBClass::readTemperature()
 {
     int32_t vrefint_data, tsense_data;
-    float vdda, temperature;
+    float vref, tsense, temperature;
 
     if (!k_task_is_in_progress()) {
         return 0;
     }
     
-    vrefint_data = __analogReadChannel(STM32WB_ADC_CHANNEL_VREFINT, STM32WB_ADC_VREFINT_PERIOD);
-    tsense_data = __analogReadChannel(STM32WB_ADC_CHANNEL_TSENSE, STM32WB_ADC_TSENSE_PERIOD);
+    vrefint_data = stm32wb_adc_convert(STM32WB_ADC_CHANNEL_VREFINT, STM32WB_ADC_VREFINT_PERIOD);
+    tsense_data = stm32wb_adc_convert(STM32WB_ADC_CHANNEL_TSENSE, STM32WB_ADC_TSENSE_PERIOD);
 
-    vdda = (STM32WB_ADC_VREFINT_VREF * STM32WB_ADC_VREFINT_CAL) / vrefint_data;
+    vref = (STM32WB_ADC_VREFINT_VREF * STM32WB_ADC_VREFINT_CAL) / vrefint_data;
 
-    tsense_data = tsense_data * (vdda / STM32WB_ADC_TSENSE_CAL_VREF);
+    tsense = (vref * tsense_data) / STM32WB_ADC_TSENSE_CAL_VREF;
   
     temperature = ((((STM32WB_ADC_TSENSE_CAL2_TEMP - STM32WB_ADC_TSENSE_CAL1_TEMP) /(float)(STM32WB_ADC_TSENSE_CAL2 - STM32WB_ADC_TSENSE_CAL1))
-                    * (float)(tsense_data - STM32WB_ADC_TSENSE_CAL1))
+                    * (tsense - STM32WB_ADC_TSENSE_CAL1))
                    + STM32WB_ADC_TSENSE_CAL1_TEMP);
 
     return temperature;
 }
 
-float STM32WBClass::readVDDA()
+float STM32WBClass::readVREF()
 {
     int32_t vrefint_data;
-    float vdda;
+    float vref;
 
     if (!k_task_is_in_progress()) {
         return 0;
     }
 
-    vrefint_data = __analogReadChannel(STM32WB_ADC_CHANNEL_VREFINT, STM32WB_ADC_VREFINT_PERIOD);
+    vrefint_data = stm32wb_adc_convert(STM32WB_ADC_CHANNEL_VREFINT, STM32WB_ADC_VREFINT_PERIOD);
 
-    vdda = (STM32WB_ADC_VREFINT_VREF * STM32WB_ADC_VREFINT_CAL) / vrefint_data;
+    vref = (STM32WB_ADC_VREFINT_VREF * STM32WB_ADC_VREFINT_CAL) / vrefint_data;
 
-    return vdda;
+    return vref;
 }
 
 uint32_t STM32WBClass::resetCause()
