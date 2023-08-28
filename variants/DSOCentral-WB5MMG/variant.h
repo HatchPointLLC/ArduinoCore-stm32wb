@@ -73,8 +73,8 @@ extern "C"
  *----------------------------------------------------------------------------*/
 
 // Number of pins defined in PinDescription array
-#define PINS_COUNT           (22u)
-#define NUM_DIGITAL_PINS     (15u)
+#define PINS_COUNT           (30u)
+#define NUM_DIGITAL_PINS     (24u)
 #define NUM_ANALOG_INPUTS    (6u)
 #define NUM_ANALOG_OUTPUTS   (0u)
 
@@ -111,6 +111,19 @@ extern "C"
 #define BUSC_PWM0               (6u)
 #define BUSC_PWM1               (7u)
 
+#define BUSD_SDA				(8u)
+#define BUSD_SCL				(9u)
+
+#define BUSE_SPI_MOSI			(23u)
+#define BUSE_SPI_MISO			(24u)
+#define BUSE_SPI_SCK			(22u)
+#define BUSE_SPI_SS				(25u)
+
+#define BUSE_SAI_FS				(26u)
+#define BUSE_SAI_SCK			(27u)
+#define BUSE_SAI_SD				(28u)
+#define BUSE_WKUP				(29u)
+
 static const uint8_t A0  = PIN_A0;
 static const uint8_t A1  = PIN_A1;
 static const uint8_t A2  = PIN_A2;
@@ -119,14 +132,14 @@ static const uint8_t A4  = PIN_A4;
 static const uint8_t A5  = PIN_A4;
 #define ADC_RESOLUTION		12
 
-#define PIN_BUTTON           (23)
-static const uint8_t BUTTON = PIN_BUTTON;
+// #define PIN_BUTTON           (23)
+// static const uint8_t BUTTON = PIN_BUTTON;
 
 /*
  * Serial interfaces
  */
 
-#define SERIAL_INTERFACES_COUNT 1
+#define SERIAL_INTERFACES_COUNT 2
 
 #define PIN_SERIAL1_RX       (0ul)
 #define PIN_SERIAL1_TX       (1ul)
@@ -134,13 +147,14 @@ static const uint8_t BUTTON = PIN_BUTTON;
 /*
  * SPI Interfaces
  */
-#define SPI_INTERFACES_COUNT 0
+#define SPI_INTERFACES_COUNT 2
 
-#define PIN_SPI_MOSI         (11u)
-#define PIN_SPI_MISO         (12u)
-#define PIN_SPI_SCK          (13u)
+#define PIN_SPI_MOSI         	BUSE_SPI_MOSI
+#define PIN_SPI_MISO         	BUSE_SPI_MISO
+#define PIN_SPI_SCK          	BUSE_SPI_SCK
+#define PIN_SPI_SS          	BUSE_SPI_SS
 
-static const uint8_t SS	  = 10;
+static const uint8_t SS	  = PIN_SPI_SS;
 static const uint8_t MOSI = PIN_SPI_MOSI;
 static const uint8_t MISO = PIN_SPI_MISO;
 static const uint8_t SCK  = PIN_SPI_SCK;
@@ -151,14 +165,13 @@ static const uint8_t SCK  = PIN_SPI_SCK;
 #define WIRE_INTERFACES_COUNT 1
 
 // Bus D
-#define PIN_WIRE_SDA         (8u)
-#define PIN_WIRE_SCL         (9u)
+#define PIN_WIRE_SDA         BUSD_SDA
+#define PIN_WIRE_SCL         BUSD_SCL
 
 static const uint8_t SDA = PIN_WIRE_SDA;
 static const uint8_t SCL = PIN_WIRE_SCL;
 
-#define BUSD_GPIO0          (21u)
-#define BUSD_GPIO1          (20u)
+
 
 /*
  * PDM Interfaces
