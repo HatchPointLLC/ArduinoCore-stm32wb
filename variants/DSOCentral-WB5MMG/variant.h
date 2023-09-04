@@ -73,56 +73,75 @@ extern "C"
  *----------------------------------------------------------------------------*/
 
 // Number of pins defined in PinDescription array
-#define PINS_COUNT           (30u)
-#define NUM_DIGITAL_PINS     (24u)
-#define NUM_ANALOG_INPUTS    (6u)
+#define PINS_COUNT           (37u)
+#define NUM_DIGITAL_PINS     (30u)
+#define NUM_ANALOG_INPUTS    (7u)
 #define NUM_ANALOG_OUTPUTS   (0u)
-
-// LEDs
-#define PIN_LED              (16u)
-#define PIN_LED2             (17u)
-#define PIN_LED3             (18u)
-#define PIN_LED4             (19u)
-#define LED_BUILTIN          PIN_LED
-
-/*
- * Analog pins
- */
-#define PIN_A0               (10ul)
-#define PIN_A1               (11ul)
-#define PIN_A2               (12ul)
-#define PIN_A3               (13ul)
-#define PIN_A4               (14ul)
-#define PIN_A5               (15ul)
 
 // Bus A 
 #define BUSA_PWM0               (0u)
 #define BUSA_PWM1               (1u)
-#define BUSA_AIN0               PIN_A0  // Current A.0
-#define BUSA_AIN1               PIN_A1  // Current A.1
+#define BUSA_GPIO0              (2u)
+#define BUSA_PWM2               (3u)
+#define BUSA_AIN0               (4u) 
+#define BUSA_AIN1               (5u) 
 
-#define BUSB_PWM0               (4u)
-#define BUSB_PWM1               (5u)
-#define BUSB_AIN0               PIN_A2  // Current B.0
-#define BUSB_AIN1               PIN_A3  // Current B.1
-#define BUSB_AIN2               PIN_A4  // Temp B.0
-#define BUSB_AIN3               PIN_A5  // Temp B.1
+// Bus B
+#define BUSB_PWM0               (6u)
+#define BUSB_PWM1               (7u)
+#define BUSB_GPIO0              (8u)
+#define BUSB_GPIO1              (9u)
+#define BUSB_AIN0               (10u)
+#define BUSB_AIN1               (11u)
 
-#define BUSC_PWM0               (6u)
-#define BUSC_PWM1               (7u)
+// Bus C
+#define BUSC_PWM0               (12u)
+#define BUSC_PWM1               (13u)
+#define BUSC_GPIO0              (14u)
+#define BUSC_GPIO1              (15u)
+#define BUSC_AIN0               (16u)
+#define BUSC_AIN1               (17u)
 
-#define BUSD_SDA				(8u)
-#define BUSD_SCL				(9u)
+// Bus D
+#define BUSD_SDA				(18u)
+#define BUSD_SCL				(19u)
+#define BUSD_GPIO0				(20u)
+#define BUSD_GPIO1				(21u)
+#define BUSD_GPIO2				(22u)
 
-#define BUSE_SPI_MOSI			(23u)
-#define BUSE_SPI_MISO			(24u)
-#define BUSE_SPI_SCK			(22u)
-#define BUSE_SPI_SS				(25u)
+// Bus E
+#define BUSE_SPI_SCK			(23u)
+#define BUSE_SPI_MOSI			(24u)
+#define BUSE_SPI_MISO			(25u)
+#define BUSE_SPI_SS				(26u)
+#define BUSE_SAI_FS				(27u)
+#define BUSE_SAI_SCK			(28u)
+#define BUSE_SAI_SD				(29u)
 
-#define BUSE_SAI_FS				(26u)
-#define BUSE_SAI_SCK			(27u)
-#define BUSE_SAI_SD				(28u)
-#define BUSE_WKUP				(29u)
+// LED Bus
+#define PIN_LED2             	(30u)
+#define PIN_LED3             	(31u)
+#define PIN_LED4             	(32u)
+
+// Status LED (GPIO or PWM)
+#define PIN_LED              	(33u)
+#define LED_BUILTIN          	PIN_LED
+
+// Bus D/E wakeup
+#define BUS_WKUP2				(34u)
+
+#define PIN_BUTTON           	(35u)
+static const uint8_t BUTTON = PIN_BUTTON;
+
+/*
+ * Analog pins
+ */
+#define PIN_A0               	BUSA_AIN0
+#define PIN_A1               	BUSA_AIN1
+#define PIN_A2               	BUSB_AIN0
+#define PIN_A3               	BUSB_AIN1
+#define PIN_A4               	BUSC_AIN0
+#define PIN_A5               	BUSC_AIN1
 
 static const uint8_t A0  = PIN_A0;
 static const uint8_t A1  = PIN_A1;
@@ -132,17 +151,14 @@ static const uint8_t A4  = PIN_A4;
 static const uint8_t A5  = PIN_A4;
 #define ADC_RESOLUTION		12
 
-// #define PIN_BUTTON           (23)
-// static const uint8_t BUTTON = PIN_BUTTON;
-
 /*
  * Serial interfaces
  */
 
 #define SERIAL_INTERFACES_COUNT 2
 
-#define PIN_SERIAL1_RX       (0ul)
-#define PIN_SERIAL1_TX       (1ul)
+#define PIN_SERIAL1_RX       	BUSD_GPIO0
+#define PIN_SERIAL1_TX       	BUSD_GPIO1
 
 /*
  * SPI Interfaces
@@ -170,8 +186,6 @@ static const uint8_t SCK  = PIN_SPI_SCK;
 
 static const uint8_t SDA = PIN_WIRE_SDA;
 static const uint8_t SCL = PIN_WIRE_SCL;
-
-
 
 /*
  * PDM Interfaces
