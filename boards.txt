@@ -305,6 +305,14 @@ DSOCentral-WB5MMG.upload.native_usb=true
 DSOCentral-WB5MMG.upload.maximum_size=786432
 DSOCentral-WB5MMG.upload.maximum_data_size=196608
 
+menu.printf=STM32 printf Version
+DSOCentral-WB5MMG.menu.printf.default=Default printf
+DSOCentral-WB5MMG.menu.printf.default.compiler.c.elf.extra_flags=
+DSOCentral-WB5MMG.menu.printf.full=Full printf
+DSOCentral-WB5MMG.menu.printf.full.compiler.c.elf.extra_flags=-Wl,-u,vfprintf -u_printf_float
+DSOCentral-WB5MMG.menu.printf.minimal=Minimal printf
+DSOCentral-WB5MMG.menu.printf.minimal.compiler.c.elf.extra_flags=-Wl,-u,vfprintf -u_printf_min
+
 DSOCentral-WB5MMG.menu.usb.cdc=Serial
 DSOCentral-WB5MMG.menu.usb.cdc.build.usb_type=1
 DSOCentral-WB5MMG.menu.usb.cdc_msc=Serial + Mass Storage
