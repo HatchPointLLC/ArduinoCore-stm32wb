@@ -74,8 +74,8 @@ extern "C"
 
 // Number of pins defined in PinDescription array
 #define PINS_COUNT           (37u)
-#define NUM_DIGITAL_PINS     (26u)
-#define NUM_ANALOG_INPUTS    (11u)
+#define NUM_DIGITAL_PINS     (25u)
+#define NUM_ANALOG_INPUTS    (12u)
 #define NUM_ANALOG_OUTPUTS   (0u)
 
 /*
@@ -164,6 +164,9 @@ static const uint8_t A5  = PIN_A4;
 
 #define PIN_BUTTON           	(36u)
 static const uint8_t BUTTON = PIN_BUTTON;
+
+static uint16_t ANALOG_PINS[]= {BUSA_AIN0, BUSA_AIN1, BUSA_AIN2, BUSA_AIN3, BUSB_AIN0, BUSB_AIN1, BUSB_AIN2, BUSB_AIN3, BUSC_AIN0, BUSC_AIN1, BUSC_AIN2, BUSC_AIN3};
+static const char ANALOG_PIN_DESC[][16] = {"BUSA_AIN0", "BUSA_AIN1", "BUSA_AIN2", "BUSA_AIN3", "BUSB_AIN0", "BUSB_AIN1", "BUSB_AIN2", "BUSB_AIN3", "BUSC_AIN0", "BUSC_AIN1", "BUSC_AIN2", "BUSC_AIN3"};
 
 /*
  * Serial interfaces

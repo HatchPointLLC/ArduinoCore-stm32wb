@@ -153,6 +153,8 @@ static const uint8_t A4  = PIN_A4;
 static const uint8_t A5  = PIN_A4;
 #define ADC_RESOLUTION		12
 
+static uint16_t ANALOG_PINS[]= {BUSA_AIN0, BUSA_AIN1, BUSB_AIN0, BUSB_AIN1, BUSC_AIN0, BUSC_AIN1};
+static const char ANALOG_PIN_DESC[][16] = {"BUSA_AIN0", "BUSA_AIN1", "BUSB_AIN0", "BUSB_AIN1", "BUSC_AIN0", "BUSC_AIN1"};
 /*
  * Serial interfaces
  */
