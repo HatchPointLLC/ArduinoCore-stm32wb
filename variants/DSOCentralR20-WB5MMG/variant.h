@@ -131,10 +131,10 @@ static const uint8_t A5  = PIN_A4;
 // Bus D
 #define BUSD_SDA         		(18u)
 #define BUSD_SCL         		(19u)
-#define BUSD_GPIO0          	(20u)
-#define BUSD_GPIO1          	(21u)
+#define BUSD_GPIO0_TX          	(20u)
+#define BUSD_GPIO1_RX          	(21u)
 #define BUSD_GPIO2          	(22u)
-#define BUSD_WAKE_INT      		(30u)	 
+#define BUSD_WAKE_INT      		(30u)
 
 // Bus E
 #define BUSE_SPI_SCK          	(23u)
@@ -172,10 +172,10 @@ static const char ANALOG_PIN_DESC[][16] = {"BUSA_AIN0", "BUSA_AIN1", "BUSA_AIN2"
  * Serial interfaces
  */
 
-#define SERIAL_INTERFACES_COUNT 1
+#define SERIAL_INTERFACES_COUNT 2
 
-#define PIN_SERIAL1_RX       (0ul)
-#define PIN_SERIAL1_TX       (1ul)
+#define PIN_SERIAL1_RX       BUSD_GPIO1_RX
+#define PIN_SERIAL1_TX       BUSD_GPIO0_TX
 
 /*
  * SPI Interfaces
@@ -241,10 +241,9 @@ extern Uart Serial1;
 //                            pins are NOT connected to anything by default.
 #define SERIAL_PORT_USBVIRTUAL      Serial
 #define SERIAL_PORT_MONITOR         Serial
-#define SERIAL_PORT_HARDWARE1       Serial1
+#define SERIAL_PORT_HARDWARE_OPEN   Serial1
 
 // Alias SerialUSB to Serial
 #define SerialUSB SERIAL_PORT_USBVIRTUAL
 
 #endif /* _VARIANT_DSOCENTRALR20_STM32WB5MMG_ */
-

@@ -104,21 +104,38 @@ extern const unsigned int g_PWMInstances[PWM_INSTANCE_COUNT] = {
     STM32WB_TIM_INSTANCE_TIM17,
 };
 
+static uint8_t stm32wb_usart1_rx_fifo[32];
 extern const stm32wb_uart_params_t g_Serial1Params = {
     STM32WB_UART_INSTANCE_LPUART1,
     STM32WB_UART_IRQ_PRIORITY,
-    STM32WB_DMA_CHANNEL_NONE,
-    STM32WB_DMA_CHANNEL_NONE,
-    NULL,
-    0,
+    (STM32WB_DMA_CHANNEL_DMA2_CH3_INDEX | STM32WB_DMA_CHANNEL_SELECT_LPUART1_RX),
+    (STM32WB_DMA_CHANNEL_DMA2_CH4_INDEX | STM32WB_DMA_CHANNEL_SELECT_LPUART1_TX),
+    &stm32wb_usart1_rx_fifo[0],
+    sizeof(stm32wb_usart1_rx_fifo),
     {
-        STM32WB_GPIO_PIN_PB10_LPUART1_RX,
-        STM32WB_GPIO_PIN_PB11_LPUART1_TX,
-        STM32WB_GPIO_PIN_PB12_LPUART1_RTS_DE,
-        STM32WB_GPIO_PIN_PB13_LPUART1_CTS,
+        STM32WB_GPIO_PIN_PA3_LPUART1_RX,
+        STM32WB_GPIO_PIN_PB5_LPUART1_TX,
+        STM32WB_GPIO_PIN_NONE,
+        STM32WB_GPIO_PIN_NONE,
         STM32WB_GPIO_PIN_NONE,
     },
 };
+
+// extern const stm32wb_uart_params_t g_Serial1Params = {
+//     STM32WB_UART_INSTANCE_LPUART1,
+//     STM32WB_UART_IRQ_PRIORITY,
+//     STM32WB_DMA_CHANNEL_NONE,
+//     STM32WB_DMA_CHANNEL_NONE,
+//     NULL,
+//     0,
+//     {
+//         STM32WB_GPIO_PIN_PA3_LPUART1_RX,
+//         STM32WB_GPIO_PIN_PB5_LPUART1_TX,
+//         STM32WB_GPIO_PIN_NONE,
+//         STM32WB_GPIO_PIN_NONE,
+//         STM32WB_GPIO_PIN_NONE,
+//     },
+// };
 
 extern const stm32wb_spi_params_t g_SPIParams = {
     STM32WB_SPI_INSTANCE_SPI1,
@@ -129,22 +146,6 @@ extern const stm32wb_spi_params_t g_SPIParams = {
         STM32WB_GPIO_PIN_PA7_SPI1_MOSI,
         STM32WB_GPIO_PIN_PB4_SPI1_MISO,
         STM32WB_GPIO_PIN_PA5_SPI1_SCK,
-    },
-};
-
-extern const stm32wb_uart_params_t g_SPI1Params = {
-    STM32WB_UART_INSTANCE_USART1,
-    STM32WB_UART_IRQ_PRIORITY,
-    (STM32WB_DMA_CHANNEL_DMA1_CH1_INDEX | STM32WB_DMA_CHANNEL_SELECT_USART1_RX),
-    (STM32WB_DMA_CHANNEL_DMA1_CH2_INDEX | STM32WB_DMA_CHANNEL_SELECT_USART1_TX),
-    NULL,
-    0,
-    {
-        STM32WB_GPIO_PIN_PB7_USART1_RX,
-        STM32WB_GPIO_PIN_PB6_USART1_TX,
-        STM32WB_GPIO_PIN_NONE,
-        STM32WB_GPIO_PIN_NONE,
-        STM32WB_GPIO_PIN_PB5_USART1_CK,
     },
 };
 
@@ -220,9 +221,6 @@ static const stm32wb_sfsqi_params_t g_SFSQIParams =
 void initVariant()
 {
     //stm32wb_spi_create(&g_SPI2, &g_SPI2Params);
-
     //stm32wb_sdspi_initialize(&g_SPI2, &g_SDSPI2Params);
-
     stm32wb_sfsqi_initialize(&g_SFSQIParams);
 }
-
