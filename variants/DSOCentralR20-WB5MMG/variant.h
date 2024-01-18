@@ -109,24 +109,27 @@ static const uint8_t A5  = PIN_A4;
 #define BUSA_PWM1               (1u)
 #define BUSA_AIN0               PIN_A0  // Current A.0
 #define BUSA_AIN1               PIN_A1  // Current A.1
-#define BUSA_AIN2               PIN_A2  // Current A.0
-#define BUSA_AIN3               PIN_A3  // Current A.1
+#define BUSA_AIN2               PIN_A2  // Temp A.2
+#define BUSA_AIN3               PIN_A3  // Temp A.3
 
 // Bus B
 #define BUSB_PWM0               (6u)
 #define BUSB_PWM1               (7u)
 #define BUSB_AIN0               PIN_A4  // Current B.0
 #define BUSB_AIN1               PIN_A5  // Current B.1
-#define BUSB_AIN2               PIN_A6  // Temp B.0
-#define BUSB_AIN3               PIN_A7  // Temp B.1
+#define BUSB_AIN2               PIN_A6  // Temp B.2
+#define BUSB_AIN3               PIN_A7  // Temp B.3
 
 // Bus C
 #define BUSC_PWM0               (12u)
 #define BUSC_PWM1               (13u)
-#define BUSC_AIN0               PIN_A8  // Current B.0
-#define BUSC_AIN1               PIN_A9  // Current B.1
-#define BUSC_AIN2               PIN_A10  // Temp B.0
-#define BUSC_AIN3               PIN_A11  // Temp B.1
+#define BUSC_AIN0               PIN_A8  // Current C.0
+#define BUSC_AIN1               PIN_A9  // Current C.1
+#define BUSC_AIN2               PIN_A10  // Temp C.2
+#define BUSC_AIN3               PIN_A11  // Temp C.3
+
+#define BUSC_PWM0_I				BUSC_AIN0
+#define BUSC_PWM1_I				BUSC_AIN1
 
 // Bus D
 #define BUSD_SDA         		(18u)
@@ -166,7 +169,7 @@ static const uint8_t A5  = PIN_A4;
 static const uint8_t BUTTON = PIN_BUTTON;
 
 static uint16_t ANALOG_PINS[]= {BUSA_AIN0, BUSA_AIN1, BUSA_AIN2, BUSA_AIN3, BUSB_AIN0, BUSB_AIN1, BUSB_AIN2, BUSB_AIN3, BUSC_AIN0, BUSC_AIN1, BUSC_AIN2, BUSC_AIN3};
-static const char ANALOG_PIN_DESC[][16] = {"BUSA_AIN0", "BUSA_AIN1", "BUSA_AIN2", "BUSA_AIN3", "BUSB_AIN0", "BUSB_AIN1", "BUSB_AIN2", "BUSB_AIN3", "BUSC_AIN0", "BUSC_AIN1", "BUSC_AIN2", "BUSC_AIN3"};
+static const char ANALOG_PIN_DESC[][12] = {"BUSA_AIN0", "BUSA_AIN1", "BUSA_AIN2", "BUSA_AIN3", "BUSB_AIN0", "BUSB_AIN1", "BUSB_AIN2", "BUSB_AIN3", "BUSC_AIN0", "BUSC_AIN1", "BUSC_AIN2", "BUSC_AIN3"};
 
 static uint16_t RST_PIN = BUSD_GPIO2;
 
