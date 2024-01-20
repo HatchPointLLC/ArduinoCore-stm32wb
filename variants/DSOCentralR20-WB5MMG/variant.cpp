@@ -44,13 +44,15 @@ extern const PinDescription g_APinDescription[PINS_COUNT] =
     //Bus A PWM
     { GPIOA, STM32WB_GPIO_PIN_MASK(STM32WB_GPIO_PIN_PA0),  STM32WB_GPIO_PIN_PA0_TIM2_CH1,   0,                                  PWM_INSTANCE_TIM2,  PWM_CHANNEL_1,      ADC_CHANNEL_NONE }, // 0 BUSA PWM0
     { GPIOA, STM32WB_GPIO_PIN_MASK(STM32WB_GPIO_PIN_PA10), STM32WB_GPIO_PIN_PA10_TIM1_CH3,  0,                                  PWM_INSTANCE_TIM1,  PWM_CHANNEL_3,      ADC_CHANNEL_NONE }, // 1 BUSA PWM1
+// RSL: When swapping PA1 between Timer output and analog input, pay close attention to pin order.
 // Use for A|3 to be PWM
 //    { GPIOA, STM32WB_GPIO_PIN_MASK(STM32WB_GPIO_PIN_PA1),  STM32WB_GPIO_PIN_PA1_TIM2_CH2,   0,                                  PWM_INSTANCE_TIM2,  PWM_CHANNEL_2,      ADC_CHANNEL_NONE }, // 2 BUSA GPIO is PWM
-// Use for A|3 to be Analog input
-    { GPIOA, STM32WB_GPIO_PIN_MASK(STM32WB_GPIO_PIN_PA1),  STM32WB_GPIO_PIN_PA1,            0,                                  PWM_INSTANCE_NONE,  PWM_CHANNEL_NONE,   ADC_CHANNEL_6    },   // 2 BUSA GPIO0 is AIN6
-    { GPIOC, STM32WB_GPIO_PIN_MASK(STM32WB_GPIO_PIN_PC1),  STM32WB_GPIO_PIN_PC1,            0,                                  PWM_INSTANCE_NONE,  PWM_CHANNEL_NONE,   ADC_CHANNEL_2    }, // 3
-    { GPIOC, STM32WB_GPIO_PIN_MASK(STM32WB_GPIO_PIN_PC2),  STM32WB_GPIO_PIN_PC2,            0,                                  PWM_INSTANCE_NONE,  PWM_CHANNEL_NONE,   ADC_CHANNEL_3    }, // 4
-    { GPIOA, STM32WB_GPIO_PIN_MASK(STM32WB_GPIO_PIN_PA9),  STM32WB_GPIO_PIN_PA9,            0,                                  PWM_INSTANCE_NONE,  PWM_CHANNEL_NONE,   ADC_CHANNEL_16   }, // 5
+    { GPIOA, STM32WB_GPIO_PIN_MASK(STM32WB_GPIO_PIN_PA1),  STM32WB_GPIO_PIN_PA1,            0,                                  PWM_INSTANCE_NONE,  PWM_CHANNEL_NONE,   ADC_CHANNEL_6    }, // 2 BUSA GPIO0|AIN2 is STM32.AIN6
+    { GPIOA, STM32WB_GPIO_PIN_MASK(STM32WB_GPIO_PIN_PA9),  STM32WB_GPIO_PIN_PA9,            0,                                  PWM_INSTANCE_NONE,  PWM_CHANNEL_NONE,   ADC_CHANNEL_16   }, // 3 BUSA GPIO1|AIN3 is STM32.AIN16
+    { GPIOC, STM32WB_GPIO_PIN_MASK(STM32WB_GPIO_PIN_PC1),  STM32WB_GPIO_PIN_PC1,            0,                                  PWM_INSTANCE_NONE,  PWM_CHANNEL_NONE,   ADC_CHANNEL_2    }, // 4 BUSA AIN0 is STM32.AIN2
+    { GPIOC, STM32WB_GPIO_PIN_MASK(STM32WB_GPIO_PIN_PC2),  STM32WB_GPIO_PIN_PC2,            0,                                  PWM_INSTANCE_NONE,  PWM_CHANNEL_NONE,   ADC_CHANNEL_3    }, // 5 BUSA AIN1 is STM32.AIN3
+// Use below for A|3 to be Analog input
+
 
     // Bus B PWM
     { GPIOD, STM32WB_GPIO_PIN_MASK(STM32WB_GPIO_PIN_PD14), STM32WB_GPIO_PIN_PD14_TIM1_CH1,  0,                                  PWM_INSTANCE_TIM1,  PWM_CHANNEL_1,      ADC_CHANNEL_NONE }, // 6 BUSB PWM0
