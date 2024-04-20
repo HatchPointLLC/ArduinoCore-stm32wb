@@ -72,6 +72,11 @@ extern "C"
  *        Pins
  *----------------------------------------------------------------------------*/
 
+// Track variant revision
+// Corrected Bus B|1 Pin definition error
+// Add variant tracking
+static const char variant_version_str[] = "DSO Central variant built:04/20/2024 version:0.2";
+
 // Number of pins defined in PinDescription array
 #define PINS_COUNT           (37u)
 #define NUM_DIGITAL_PINS     (25u)
